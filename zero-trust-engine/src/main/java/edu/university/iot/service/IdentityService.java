@@ -8,13 +8,14 @@ import edu.university.iot.repository.DeviceRegistryRepository;
 
 @Service
 public class IdentityService {
-  @Autowired
-  private DeviceRegistryRepository repo;
 
-  /** returns true if deviceId exists & is registered */
-  public boolean isTrusted(String deviceId) {
-    return repo.findById(deviceId)
-               .map(DeviceRegistry::isRegistered)
-               .orElse(false);
-  }
+    @Autowired
+    private DeviceRegistryRepository repo;
+
+    /** returns true if deviceId exists & is registered */
+    public boolean isTrusted(String deviceId) {
+        return repo.findById(deviceId)
+                   .map(device -> device.isRegistered())  // Changed this line
+                   .orElse(false);
+    }
 }

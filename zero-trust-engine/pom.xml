@@ -11,6 +11,35 @@
     <artifactId>spring-boot-starter-parent</artifactId>    
     <version>3.2.0</version>  
   </parent>  
+  
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <azure.version>1.2.25</azure.version>
+  </properties>
+  
+  <dependencyManagement>
+    <dependencies>
+      <!-- Azure SDK BOM for compatible versions -->
+      <dependency>
+        <groupId>com.azure</groupId>
+        <artifactId>azure-sdk-bom</artifactId>
+        <version>1.2.25</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      
+      <!-- Spring Cloud Azure BOM -->
+      <dependency>
+        <groupId>com.azure.spring</groupId>
+        <artifactId>spring-cloud-azure-dependencies</artifactId>
+        <version>5.8.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>    
     <dependency>      
       <groupId>org.springframework.boot</groupId>      
@@ -21,42 +50,81 @@
       <artifactId>spring-boot-starter-data-jpa</artifactId>    
     </dependency>
     <dependency>
-    <groupId>com.microsoft.azure.sdk.iot</groupId>
-    <artifactId>iot-service-client</artifactId>
-    <version>1.6.23</version>
-</dependency>
-<dependency>
-		    <groupId>com.azure</groupId>
-		    <artifactId>azure-messaging-eventhubs</artifactId>
-		    <version>5.20.2</version>
-		</dependency>
-		<dependency>
-		    <groupId>com.azure</groupId>
-		    <artifactId>azure-identity</artifactId>
-		    <version>1.16.1</version>
-		    <scope>compile</scope>
-		</dependency>    
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.vintage</groupId>
+          <artifactId>junit-vintage-engine</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    
+    <!-- Azure Event Hubs - Version managed by BOM -->
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-messaging-eventhubs</artifactId>
+      <!-- Version managed by azure-sdk-bom -->
+    </dependency>
+    
+    <!-- Azure Identity - Version managed by BOM -->
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-identity</artifactId>
+      <!-- Version managed by azure-sdk-bom -->
+      <scope>compile</scope>
+    </dependency>
+    
+    <!-- Remove explicit azure-core-amqp as it will be pulled in by azure-messaging-eventhubs -->
+    <!-- Remove explicit proton-j as it will be managed by Azure dependencies -->
+    
+    <!-- Microsoft Azure IoT Service Client -->
+    <dependency>
+      <groupId>com.microsoft.azure.sdk.iot</groupId>
+      <artifactId>iot-service-client</artifactId>
+      <version>1.6.23</version>
+    </dependency>
+    
+    <!-- Jackson for JSON processing -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.datatype</groupId>
+      <artifactId>jackson-datatype-jsr310</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    
+    <!-- Database drivers -->
     <dependency>      
       <groupId>com.microsoft.sqlserver</groupId>      
       <artifactId>mssql-jdbc</artifactId>      
-      <version>9.2.1.jre11</version>    
+      <version>12.4.2.jre11</version>    
     </dependency> 
-    <dependency>
-  <groupId>org.slf4j</groupId>
-  <artifactId>slf4j-simple</artifactId>
-  <version>1.7.36</version>
-</dependency>
-   
+    
+    <!-- Logging - Remove slf4j-simple to avoid conflicts -->
+    <!-- Spring Boot already includes Logback -->
+    
+    <!-- Web3j for blockchain -->
     <dependency>      
       <groupId>org.web3j</groupId>      
       <artifactId>core</artifactId>      
       <version>4.8.7</version>    
-    </dependency>    
+    </dependency>
+    
+    <!-- Thymeleaf templating -->
     <dependency>      
       <groupId>org.springframework.boot</groupId>      
       <artifactId>spring-boot-starter-thymeleaf</artifactId>    
-    </dependency>  
+    </dependency> 
   </dependencies>  
+  
   <build>    
     <plugins>      
       <plugin>        
