@@ -7,88 +7,131 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import edu.university.iot.entity.DeviceMessage;
-import edu.university.iot.model.*;
+import edu.university.iot.entity.DeviceRegistry;
 import edu.university.iot.repository.DeviceMessageRepository;
-import edu.university.iot.repository.IdentityLogRepository;
-import edu.university.iot.repository.FirmwareLogRepository;
-import edu.university.iot.repository.AnomalyLogRepository;
-import edu.university.iot.repository.ComplianceLogRepository;
+import edu.university.iot.repository.DeviceRegistryRepository;
 
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.Optional;
 
 @Service
 public class EventListenerService {
+    private static final Logger log = LoggerFactory.getLogger(EventListenerService.class);
 
-    @Autowired private IdentityService identityService;
-    @Autowired private FirmwareService firmwareService;
-    @Autowired private AnomalyDetectorService anomalyDetectorService;
-    @Autowired private ComplianceService complianceService;
-
-    @Autowired private DeviceMessageRepository deviceRepo;
-    @Autowired private IdentityLogRepository identityRepo;
-    @Autowired private FirmwareLogRepository firmwareRepo;
-    @Autowired private AnomalyLogRepository anomalyRepo;
-    @Autowired private ComplianceLogRepository complianceRepo;
+    private final DeviceRegistryRepository deviceRegistryRepository;
+    private final DeviceMessageRepository deviceMessageRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${eventhubs.connection-string}")
     private String connectionString;
-
     @Value("${eventhubs.entity-path}")
     private String entityPath;
-
     @Value("${eventhubs.consumer-group}")
     private String consumerGroup;
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
+    public EventListenerService(DeviceRegistryRepository deviceRegistryRepository,
+                                DeviceMessageRepository deviceMessageRepository) {
+        this.deviceRegistryRepository = deviceRegistryRepository;
+        this.deviceMessageRepository = deviceMessageRepository;
+        // configure Jackson for Instant parsing
+        this.objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
 
+    /** Start listening as soon as Spring Boot is up */
     @PostConstruct
+    public void startListening() {
+        log.info("🔌 Connecting to Azure Event Hub...");
+        EventHubConsumerAsyncClient client = new EventHubClientBuilder()
+            .connectionString(connectionString, entityPath)
+            .consumerGroup(consumerGroup)
+            .buildAsyncConsumerClient();
+
+        // Build a Flux<String> of raw JSON bodies
+        Flux<String> payloadFlux = Flux.create(sink ->
+            client.receive()
+                  .map(evt -> evt.getData().getBodyAsString())
+                  .subscribe(sink::next, sink::error, sink::complete)
+        );
+
+        processEvents(payloadFlux);
+        log.info("🚀 Event Listener connected and processing started.");
+    }
+
+    /** Feed incoming JSON strings into your processing pipeline */
+    public void processEvents(Flux<String> eventFlux) {
+        eventFlux
+          .map(this::parseMessage)           // JSON → DeviceMessage
+          .subscribe(
+            this::processDeviceMessageSafely,
+            err -> log.error("Stream error", err)
+          );
+    }
+
+    /** 
+     * Deserialize JSON → DeviceMessage.
+     * If it fails, it will be logged and dropped.
+     */
+    private DeviceMessage parseMessage(String json) {
+        try {
+            DeviceMessage msg = objectMapper.readValue(json, DeviceMessage.class);
+            log.debug("📩 Parsed message from {}: {}", msg.getDeviceId(), msg);
+            return msg;
+        } catch (Exception e) {
+            log.error("❌ Failed to parse JSON: {}", json, e);
+            // Return null to filter out
+            return null;
+        }
+    }
+
+    /**
+     * Core processing: auto‑register PENDING, skip non‑ACTIVE, save ACTIVE.
+     */
     @Transactional
-    public void listen() {
-        EventHubConsumerAsyncClient consumer = new EventHubClientBuilder()
-                .connectionString(connectionString, entityPath)
-                .consumerGroup(consumerGroup)
-                .buildAsyncConsumerClient();
+    public void processDeviceMessageSafely(DeviceMessage message) {
+        if (message == null) return;
 
-        consumer.receive()
-                .subscribe(partitionEvent -> {
-                    try {
-                        String data = partitionEvent.getData().getBodyAsString();
-                        System.out.println("📩 Message received: " + data);
+        String deviceId = message.getDeviceId();
+        registerIfMissing(message);
 
-                        // Deserialize JSON → DeviceMessage
-                        DeviceMessage msg = objectMapper.readValue(data, DeviceMessage.class);
-                        deviceRepo.save(msg);
+        Optional<DeviceRegistry> regOpt = deviceRegistryRepository.findByDeviceId(deviceId);
+        if (regOpt.isEmpty()) {
+            log.error("DeviceRegistry missing after registration for {}", deviceId);
+            return;
+        }
 
-                        // Route to services
-                        boolean trusted = identityService.isTrusted(msg.getDeviceId());
-                        boolean fwValid = firmwareService.isValid(msg.getDeviceId(), msg.getFirmwareVersion());
-                        boolean anomaly = anomalyDetectorService.isAnomaly(msg.getDeviceId(), msg.getTemperature());
-                        boolean comply = complianceService.isCompliant(msg.getFirmwareVersion());
+        String status = regOpt.get().getStatus();
+        if (!"ACTIVE".equalsIgnoreCase(status)) {
+            log.warn("⏸️ Skipping {} (status={})", deviceId, status);
+            return;
+        }
 
-                        // Handle null timestamp
-                        LocalDateTime timestamp = msg.getTimestamp();
-                        if (timestamp == null) {
-                            timestamp = LocalDateTime.now();
-                        }
+        deviceMessageRepository.save(message);
+        log.info("✅ Saved telemetry for device {}", deviceId);
+    }
 
-                        // Persist logs
-                        identityRepo.save(new IdentityLog(msg.getDeviceId(), trusted, timestamp));
-                        firmwareRepo.save(new FirmwareLog(msg.getDeviceId(), msg.getFirmwareVersion(), fwValid, timestamp));
-                        anomalyRepo.save(new AnomalyLog(msg.getDeviceId(), msg.getTemperature(), anomaly, timestamp));
-                        complianceRepo.save(new ComplianceLog(msg.getDeviceId(), msg.getFirmwareVersion(), comply, timestamp));
-
-                    } catch (Exception e) {
-                        System.err.println("❌ Error processing event: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                });
+    /** On first‐contact, insert a PENDING registration */
+    @Transactional
+    private void registerIfMissing(DeviceMessage message) {
+        String deviceId = message.getDeviceId();
+        if (deviceRegistryRepository.findByDeviceId(deviceId).isEmpty()) {
+            DeviceRegistry dr = new DeviceRegistry();
+            dr.setDeviceId(deviceId);
+            dr.setFirmwareVersion(message.getFirmwareVersion());
+            dr.setRegistrationDate(Instant.now());
+            dr.setStatus("PENDING");
+            dr.setDeviceType("IOT_SENSOR");
+            deviceRegistryRepository.save(dr);
+            log.info("🔔 Auto-registered {} as PENDING", deviceId);
+        }
     }
 }

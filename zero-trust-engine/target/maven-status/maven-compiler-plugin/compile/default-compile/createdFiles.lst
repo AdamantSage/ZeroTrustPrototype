@@ -2,6 +2,7 @@ edu\university\iot\model\AnomalyLog.class
 edu\university\iot\service\FirmwareService.class
 edu\university\iot\config\ComplianceConfig.class
 edu\university\iot\service\EventListenerService.class
+edu\university\iot\config\IoTDeviceConfig.class
 edu\university\iot\model\IdentityLog.class
 edu\university\iot\service\AnomalyDetectorService.class
 edu\university\iot\service\ComplianceService.class
