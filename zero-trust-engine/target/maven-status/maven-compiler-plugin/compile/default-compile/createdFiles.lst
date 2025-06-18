@@ -8,6 +8,7 @@ edu\university\iot\service\AnomalyDetectorService.class
 edu\university\iot\service\ComplianceService.class
 edu\university\iot\service\IdentityService.class
 edu\university\iot\Application.class
+application.properties
 edu\university\iot\model\FirmwareLog.class
 edu\university\iot\repository\DeviceMessageRepository.class
 edu\university\iot\repository\AnomalyLogRepository.class
@@ -18,4 +19,5 @@ edu\university\iot\entity\DeviceMessage.class
 edu\university\iot\repository\ComplianceLogRepository.class
 edu\university\iot\model\ComplianceLog.class
 edu\university\iot\repository\DeviceRegistryRepository.class
+templates\dashboard.html
 edu\university\iot\config\Web3jConfig.class
