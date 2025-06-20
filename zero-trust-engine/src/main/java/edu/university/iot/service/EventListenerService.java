@@ -23,14 +23,18 @@ public class EventListenerService {
     private String eventHubName;
 
     private final DeviceMessageRepository deviceMessageRepository;
+    private final TelemetryProcessorService telemetryProcessorService;
 
     // ✅ Register support for Instant, LocalDateTime, etc.
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    public EventListenerService(DeviceMessageRepository deviceMessageRepository) {
+    // ✅ Constructor injection for both services
+    public EventListenerService(DeviceMessageRepository deviceMessageRepository,
+                                TelemetryProcessorService telemetryProcessorService) {
         this.deviceMessageRepository = deviceMessageRepository;
+        this.telemetryProcessorService = telemetryProcessorService;
     }
 
     @PostConstruct
@@ -44,8 +48,13 @@ public class EventListenerService {
             try {
                 String data = partitionEvent.getData().getBodyAsString();
                 DeviceMessage message = objectMapper.readValue(data, DeviceMessage.class);
+
                 deviceMessageRepository.save(message);
                 System.out.println("Saved telemetry from device: " + message.getDeviceId());
+
+                // ✅ Process the telemetry for compliance, alerts, etc.
+                telemetryProcessorService.process(message.toMap());
+
             } catch (Exception e) {
                 System.err.println("Error processing telemetry: " + e.getMessage());
                 e.printStackTrace();
