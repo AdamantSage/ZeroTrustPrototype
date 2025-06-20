@@ -22,7 +22,9 @@ const devices = Object.keys(DEVICE_CONNECTIONS).map(id => ({
 
 // Utility functions
 function randomFirmware() {
-  return Math.random() > 0.1 ? '1.0.0' : '0.9.' + (Math.floor(Math.random() * 9) + 1);
+  return Math.random() < 0.7
+    ? '1.2.' + Math.floor(Math.random() * 3)  // Compliant: 1.2.0 - 1.2.2
+    : '1.0.' + Math.floor(Math.random() * 5); // Non-compliant: 1.0.0 - 1.0.4
 }
 function randomPatchStatus() {
   return Math.random() > 0.1 ? 'Up-to-date' : 'Outdated';

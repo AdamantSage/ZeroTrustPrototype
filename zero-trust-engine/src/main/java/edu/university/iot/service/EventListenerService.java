@@ -25,12 +25,10 @@ public class EventListenerService {
     private final DeviceMessageRepository deviceMessageRepository;
     private final TelemetryProcessorService telemetryProcessorService;
 
-    // ✅ Register support for Instant, LocalDateTime, etc.
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    // ✅ Constructor injection for both services
     public EventListenerService(DeviceMessageRepository deviceMessageRepository,
                                 TelemetryProcessorService telemetryProcessorService) {
         this.deviceMessageRepository = deviceMessageRepository;
@@ -39,26 +37,42 @@ public class EventListenerService {
 
     @PostConstruct
     public void startListening() {
+        // ← Add this debug line to confirm the method is called
+        System.out.println(">> [EventListenerService] Subscribing to Event Hub: " + eventHubName);
+
         EventHubConsumerAsyncClient consumer = new EventHubClientBuilder()
             .connectionString(eventHubConnectionString, eventHubName)
             .consumerGroup("$Default")
             .buildAsyncConsumerClient();
 
-        consumer.receive(false).subscribe(partitionEvent -> {
-            try {
-                String data = partitionEvent.getData().getBodyAsString();
-                DeviceMessage message = objectMapper.readValue(data, DeviceMessage.class);
+        // ← Wrap subscribe() with an error handler and an early debug print
+        consumer.receive(false).subscribe(
+            partitionEvent -> {
+                // ← Add this to see each incoming event
+                System.out.println(">> [EventListenerService] Received event from partition: " +
+                    partitionEvent.getPartitionContext().getPartitionId());
 
-                deviceMessageRepository.save(message);
-                System.out.println("Saved telemetry from device: " + message.getDeviceId());
+                try {
+                    String data = partitionEvent.getData().getBodyAsString();
+                    DeviceMessage message = objectMapper.readValue(data, DeviceMessage.class);
 
-                // ✅ Process the telemetry for compliance, alerts, etc.
-                telemetryProcessorService.process(message.toMap());
+                    // save & process
+                    DeviceMessage saved = deviceMessageRepository.saveAndFlush(message);
+                    System.out.println("Saved telemetry from device: " + saved.getDeviceId() +
+                                       ", assigned id=" + saved.getId());
 
-            } catch (Exception e) {
-                System.err.println("Error processing telemetry: " + e.getMessage());
-                e.printStackTrace();
+                    telemetryProcessorService.process(message.toMap());
+                    System.out.println("Processed telemetry for device: " + message.getDeviceId());
+
+                } catch (Exception e) {
+                    System.err.println("Error processing telemetry: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            },
+            error -> {
+                // ← Add this to catch subscription errors
+                System.err.println("!! [EventListenerService] Subscription error: " + error);
             }
-        });
+        );
     }
 }
