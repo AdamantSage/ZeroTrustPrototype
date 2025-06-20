@@ -19,6 +19,9 @@ public class IdentityVerificationService {
         this.logRepo = logRepo;
     }
 
+    /**
+     * Verifies device identity and persists an IdentityLog entry.
+     */
     public void verifyIdentity(Map<String, Object> telemetry) {
         String deviceId = (String) telemetry.get("deviceId");
         boolean certificateValid = Boolean.TRUE.equals(telemetry.get("certificateValid"));

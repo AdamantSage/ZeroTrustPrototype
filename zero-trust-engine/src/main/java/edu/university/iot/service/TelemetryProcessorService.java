@@ -10,7 +10,10 @@ import java.util.Map;
 public class TelemetryProcessorService {
 
     @Autowired
-    private FirmwareService firmwareValidationService;
+    private IdentityVerificationService identityVerificationService;
+
+    @Autowired
+    private FirmwareService firmwareService;
 
     @Autowired
     private AnomalyDetectorService anomalyDetectionService;
@@ -19,7 +22,8 @@ public class TelemetryProcessorService {
     private ComplianceService complianceService;
 
     public void process(Map<String, Object> telemetry) {
-        firmwareValidationService.validateFirmware(telemetry);
+        identityVerificationService.verifyIdentity(telemetry);
+        firmwareService.validateAndLogFirmware(telemetry);
         anomalyDetectionService.checkAnomaly(telemetry);
         complianceService.evaluateCompliance(telemetry);
     }
