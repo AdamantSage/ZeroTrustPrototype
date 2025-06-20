@@ -1,53 +1,41 @@
+// File: src/main/java/edu/university/iot/entity/IdentityLog.java
 package edu.university.iot.model;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
-@Table(name = "identity_logs")
 public class IdentityLog {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @Column(name = "device_id")
     private String deviceId;
-    
-    @Column(name = "trusted")
-    private boolean trusted;
-    
-    @Column(name = "timestamp")
-    private LocalDateTime timestamp;
-    
-    // Default constructor
+    private boolean certificateValid;
+    private boolean identityVerified;
+    private Instant timestamp;
+
     public IdentityLog() {}
-    
-    // Constructor with all fields
-    public IdentityLog(Long id, String deviceId, boolean trusted, LocalDateTime timestamp) {
-        this.id = id;
+
+    public IdentityLog(String deviceId, boolean certificateValid, boolean identityVerified, Instant timestamp) {
         this.deviceId = deviceId;
-        this.trusted = trusted;
+        this.certificateValid = certificateValid;
+        this.identityVerified = identityVerified;
         this.timestamp = timestamp;
     }
-    
-    // Constructor without ID (for new records)
-    public IdentityLog(String deviceId, boolean trusted, LocalDateTime timestamp) {
-        this.deviceId = deviceId;
-        this.trusted = trusted;
-        this.timestamp = timestamp;
-    }
-    
+
     // Getters and setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    
+
     public String getDeviceId() { return deviceId; }
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
-    
-    public boolean isTrusted() { return trusted; }
-    public void setTrusted(boolean trusted) { this.trusted = trusted; }
-    
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+
+    public boolean isCertificateValid() { return certificateValid; }
+    public void setCertificateValid(boolean certificateValid) { this.certificateValid = certificateValid; }
+
+    public boolean isIdentityVerified() { return identityVerified; }
+    public void setIdentityVerified(boolean identityVerified) { this.identityVerified = identityVerified; }
+
+    public Instant getTimestamp() { return timestamp; }
+    public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
 }

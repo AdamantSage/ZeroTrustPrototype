@@ -1,67 +1,113 @@
+// src/main/java/edu/university/iot/entity/DeviceMessage.java
 package edu.university.iot.entity;
 
 import jakarta.persistence.*;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Entity
-@Table(name = "device_messages")
 public class DeviceMessage {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
-    @Column(name = "device_id")
-    @JsonProperty("deviceId")
+
     private String deviceId;
-    
-    @Column(name = "firmware_version")
-    @JsonProperty("firmwareVersion")
+    private boolean certificateValid;
+    private String patchStatus;
     private String firmwareVersion;
-    
-    @Column(name = "temperature")
-    @JsonProperty("temperature")
-    private Double temperature;
-    
-    @Column(name = "timestamp")
-    @JsonProperty("timestamp")
-    // Solution 1: Use ISO format with optional milliseconds and timezone
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss[.SSS][X]")
-    private LocalDateTime timestamp;
-    
-    // Default constructor
-    public DeviceMessage() {}
-    
-    // Constructor for JSON deserialization
-    @JsonCreator
-    public DeviceMessage(@JsonProperty("deviceId") String deviceId,
-                        @JsonProperty("firmwareVersion") String firmwareVersion,
-                        @JsonProperty("temperature") Double temperature,
-                        @JsonProperty("timestamp") LocalDateTime timestamp) {
+    private String ipAddress;
+    private String location;
+    private double cpuUsage;
+    private double memoryUsage;
+    private double networkTrafficVolume;
+    private double anomalyScore;
+    private boolean malwareSignatureDetected;
+    private int sessionDuration;
+    private Instant timestamp;
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getDeviceId() {
+        return deviceId;
+    }
+    public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
+    }
+    public boolean isCertificateValid() {
+        return certificateValid;
+    }
+    public void setCertificateValid(boolean certificateValid) {
+        this.certificateValid = certificateValid;
+    }
+    public String getPatchStatus() {
+        return patchStatus;
+    }
+    public void setPatchStatus(String patchStatus) {
+        this.patchStatus = patchStatus;
+    }
+    public String getFirmwareVersion() {
+        return firmwareVersion;
+    }
+    public void setFirmwareVersion(String firmwareVersion) {
         this.firmwareVersion = firmwareVersion;
-        this.temperature = temperature;
+    }
+    public String getIpAddress() {
+        return ipAddress;
+    }
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
+    }
+    public String getLocation() {
+        return location;
+    }
+    public void setLocation(String location) {
+        this.location = location;
+    }
+    public double getCpuUsage() {
+        return cpuUsage;
+    }
+    public void setCpuUsage(double cpuUsage) {
+        this.cpuUsage = cpuUsage;
+    }
+    public double getMemoryUsage() {
+        return memoryUsage;
+    }
+    public void setMemoryUsage(double memoryUsage) {
+        this.memoryUsage = memoryUsage;
+    }
+    public double getNetworkTrafficVolume() {
+        return networkTrafficVolume;
+    }
+    public void setNetworkTrafficVolume(double networkTrafficVolume) {
+        this.networkTrafficVolume = networkTrafficVolume;
+    }
+    public double getAnomalyScore() {
+        return anomalyScore;
+    }
+    public void setAnomalyScore(double anomalyScore) {
+        this.anomalyScore = anomalyScore;
+    }
+    public boolean isMalwareSignatureDetected() {
+        return malwareSignatureDetected;
+    }
+    public void setMalwareSignatureDetected(boolean malwareSignatureDetected) {
+        this.malwareSignatureDetected = malwareSignatureDetected;
+    }
+    public int getSessionDuration() {
+        return sessionDuration;
+    }
+    public void setSessionDuration(int sessionDuration) {
+        this.sessionDuration = sessionDuration;
+    }
+    public Instant getTimestamp() {
+        return timestamp;
+    }
+    public void setTimestamp(Instant timestamp) {
         this.timestamp = timestamp;
     }
-    
-    // Getters and setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    
-    public String getDeviceId() { return deviceId; }
-    public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
-    
-    public String getFirmwareVersion() { return firmwareVersion; }
-    public void setFirmwareVersion(String firmwareVersion) { this.firmwareVersion = firmwareVersion; }
-    
-    public Double getTemperature() { return temperature; }
-    public void setTemperature(Double temperature) { this.temperature = temperature; }
-    
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+
+    // Getters and setters omitted for brevity (generate these with your IDE)
+    // ... 
 }

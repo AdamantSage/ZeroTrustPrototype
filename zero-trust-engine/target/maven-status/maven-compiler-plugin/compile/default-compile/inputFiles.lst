@@ -1,4 +1,3 @@
-C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\service\IdentityService.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\service\ComplianceService.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\model\FirmwareLog.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\service\EventListenerService.java
@@ -10,9 +9,11 @@ C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototy
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\model\ComplianceLog.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\repository\DeviceMessageRepository.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\service\AnomalyDetectorService.java
+C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\service\TelemetryProcessorService.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\repository\FirmwareLogRepository.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\config\Web3jConfig.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\Application.java
+C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\service\IdentityVerificationService.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\entity\DeviceMessage.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\repository\ComplianceLogRepository.java
 C:\Users\Michael\Documents\school\Modules-2025\ITRI671-Research\ZeroTrustPrototype\zero-trust-engine\src\main\java\edu\university\iot\model\IdentityLog.java

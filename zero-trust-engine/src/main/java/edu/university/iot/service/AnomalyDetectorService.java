@@ -1,36 +1,63 @@
+// src/main/java/edu/university/iot/service/AnomalyDetectionService.java
 package edu.university.iot.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import edu.university.iot.model.AnomalyLog;
+import edu.university.iot.entity.DeviceRegistry;
+import edu.university.iot.repository.AnomalyLogRepository;
+import edu.university.iot.repository.DeviceRegistryRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.util.*;
+
+import java.time.Instant;
+import java.util.Map;
 
 @Service
 public class AnomalyDetectorService {
-    private static final Logger logger = LoggerFactory.getLogger(AnomalyDetectorService.class);
-    private final Map<String, List<Double>> history = new HashMap<>();
 
-    /**
-     * Returns true if value deviates >3σ from rolling history
-     */
-    public boolean isAnomaly(String deviceId, double value) {
-        List<Double> list = history.computeIfAbsent(deviceId, k -> new ArrayList<>());
-        list.add(value);
+    @Autowired
+    private DeviceRegistryRepository deviceRepo;
 
-        if (list.size() < 10) {
-            logger.debug("Device [{}]: Not enough data points yet ({} values)", deviceId, list.size());
-            return false;
+    @Autowired
+    private AnomalyLogRepository anomalyRepo;
+
+    public void checkAnomaly(Map<String, Object> telemetry) {
+        String deviceId = (String) telemetry.get("deviceId");
+        double cpu = (double) telemetry.get("cpuUsage");
+        double mem = (double) telemetry.get("memoryUsage");
+        double net = (double) telemetry.get("networkTrafficVolume");
+        boolean malware = (boolean) telemetry.get("malwareSignatureDetected");
+
+        DeviceRegistry device = deviceRepo.findById(deviceId).orElse(null);
+        boolean anomaly = false;
+        String reason = "";
+
+        if (malware) {
+            anomaly = true;
+            reason = "Malware signature detected";
+        } else if (device != null) {
+            if (device.getMaxCpuUsage() != null && cpu > device.getMaxCpuUsage()) {
+                anomaly = true;
+                reason += "High CPU; ";
+            }
+            if (device.getMaxMemoryUsage() != null && mem > device.getMaxMemoryUsage()) {
+                anomaly = true;
+                reason += "High Memory; ";
+            }
+            if (device.getMaxNetworkTraffic() != null && net > device.getMaxNetworkTraffic()) {
+                anomaly = true;
+                reason += "High Network; ";
+            }
         }
 
-        double mean = list.stream().mapToDouble(v -> v).average().orElse(0);
-        double std = Math.sqrt(list.stream()
-            .mapToDouble(v -> Math.pow(v - mean, 2))
-            .sum() / list.size());
+        AnomalyLog log = new AnomalyLog();
+        log.setDeviceId(deviceId);
+        log.setCpuUsage(cpu);
+        log.setMemoryUsage(mem);
+        log.setNetworkTrafficVolume(net);
+        log.setAnomalyDetected(anomaly);
+        log.setReason(reason.trim());
+        log.setTimestamp(Instant.now());
 
-        boolean anomaly = Math.abs(value - mean) > 3 * std;
-        logger.info("Device [{}]: Value = {}, Mean = {}, StdDev = {}, Anomaly = {}", 
-            deviceId, value, mean, std, anomaly);
-
-        return anomaly;
+        anomalyRepo.save(log);
     }
 }

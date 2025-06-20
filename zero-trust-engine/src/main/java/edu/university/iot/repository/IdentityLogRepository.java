@@ -1,6 +1,7 @@
 package edu.university.iot.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
 import edu.university.iot.model.IdentityLog;
+import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface IdentityLogRepository extends JpaRepository<IdentityLog, Long> {}
+public interface IdentityLogRepository extends JpaRepository<IdentityLog, Long> {
+}
