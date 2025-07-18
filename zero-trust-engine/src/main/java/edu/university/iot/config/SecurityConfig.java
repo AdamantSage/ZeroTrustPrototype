@@ -21,23 +21,17 @@ public class SecurityConfig {
     private String password;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/v3/api-docs/**",
-                    "/swagger-resources/**",
-                    "/webjars/**"
-                ).permitAll()  // Allow public access to Swagger
-                .anyRequest().authenticated()  // Require auth for everything else
-            )
-            .httpBasic(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable());
-        
-        return http.build();
-    }
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http
+        .authorizeHttpRequests(auth -> auth
+            .anyRequest().permitAll()  // Allow all endpoints
+        )
+        .httpBasic(Customizer.withDefaults())
+        .csrf(csrf -> csrf.disable());  // Disable CSRF for testing
+
+    return http.build();
+}
+
 
     @Bean
     public UserDetailsService userDetailsService() {
