@@ -1,118 +1,64 @@
-// Package: src/main/java/edu/university/iot/controller
-
+// src/main/java/edu/university/iot/controllers/DeviceController.java
 package edu.university.iot.controllers;
 
 import edu.university.iot.entity.DeviceRegistry;
-import edu.university.iot.model.IdentityLog;
-import edu.university.iot.model.FirmwareLog;
-import edu.university.iot.model.AnomalyLog;
-import edu.university.iot.model.ComplianceLog;
-import edu.university.iot.model.LocationNetworkChange;
-import edu.university.iot.model.DeviceSession;
-import edu.university.iot.service.*;
+import edu.university.iot.model.dtoModel.DeviceSummaryDto;
+import edu.university.iot.service.DeviceRegistryService;
+import edu.university.iot.service.QuarantineService;
+import edu.university.iot.service.TrustScoreService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/devices")
 public class DeviceController {
 
-    private final DeviceRegistryService deviceRegistryService;
-    private final IdentityVerificationService identityService;
-    private final FirmwareService firmwareService;
-    private final AnomalyDetectorService anomalyService;
-    private final ComplianceService complianceService;
-    private final LocationNetworkChangeService contextService;
-    private final SessionManagementService sessionService;
-    private final TrustScoreService trustService;
+    private final DeviceRegistryService registryService;
     private final QuarantineService quarantineService;
+    private final TrustScoreService trustService;
 
-    public DeviceController(
-            DeviceRegistryService deviceRegistryService,
-            IdentityVerificationService identityService,
-            FirmwareService firmwareService,
-            AnomalyDetectorService anomalyService,
-            ComplianceService complianceService,
-            LocationNetworkChangeService contextService,
-            SessionManagementService sessionService,
-            TrustScoreService trustService,
-            QuarantineService quarantineService) {
-        this.deviceRegistryService = deviceRegistryService;
-        this.identityService = identityService;
-        this.firmwareService = firmwareService;
-        this.anomalyService = anomalyService;
-        this.complianceService = complianceService;
-        this.contextService = contextService;
-        this.sessionService = sessionService;
-        this.trustService = trustService;
+    public DeviceController(DeviceRegistryService registryService,
+                            QuarantineService quarantineService,
+                            TrustScoreService trustService) {
+        this.registryService = registryService;
         this.quarantineService = quarantineService;
+        this.trustService = trustService;
     }
 
-    // List all registered devices
+    // ← Updated to return summary DTO
     @GetMapping
-    public ResponseEntity<List<DeviceRegistry>> listDevices() {
-        return ResponseEntity.ok(deviceRegistryService.findAll());
+    public ResponseEntity<List<DeviceSummaryDto>> listDevices() {
+        List<DeviceSummaryDto> list = registryService.findAll().stream()
+            .map(dr -> new DeviceSummaryDto(
+                dr.getDeviceId(),
+                dr.isTrusted(),
+                trustService.getTrustScore(dr.getDeviceId()),
+                dr.isQuarantined()
+            ))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(list);
     }
 
-    // Get a single device
+    // No changes to detail/quarantine/trust-score endpoints
     @GetMapping("/{deviceId}")
     public ResponseEntity<DeviceRegistry> getDevice(@PathVariable String deviceId) {
-        return deviceRegistryService.findById(deviceId)
+        return registryService.findById(deviceId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Force quarantine of a device
     @PostMapping("/{deviceId}/quarantine")
-    public ResponseEntity<Void> quarantineDevice(
-            @PathVariable String deviceId,
-            @RequestParam String reason) {
+    public ResponseEntity<Void> quarantineDevice(@PathVariable String deviceId,
+                                                 @RequestParam String reason) {
         quarantineService.quarantineDevice(deviceId, reason);
         return ResponseEntity.ok().build();
     }
 
-    // Get trust score
     @GetMapping("/{deviceId}/trust-score")
     public ResponseEntity<Double> getTrustScore(@PathVariable String deviceId) {
-        double score = trustService.getTrustScore(deviceId);
-        return ResponseEntity.ok(score);
-    }
-
-    // Get session info
-    @GetMapping("/{deviceId}/session")
-    public ResponseEntity<DeviceSession> getSession(@PathVariable String deviceId) {
-        return sessionService.getSessionByDevice(deviceId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.noContent().build());
-    }
-
-    // Expose logs endpoints
-    @GetMapping("/{deviceId}/identity-logs")
-    public ResponseEntity<List<IdentityLog>> getIdentityLogs(@PathVariable String deviceId) {
-        return ResponseEntity.ok(identityService.getLogs(deviceId));
-    }
-
-    @GetMapping("/{deviceId}/firmware-logs")
-    public ResponseEntity<List<FirmwareLog>> getFirmwareLogs(@PathVariable String deviceId) {
-        return ResponseEntity.ok(firmwareService.getLogs(deviceId));
-    }
-
-    @GetMapping("/{deviceId}/anomaly-logs")
-    public ResponseEntity<List<AnomalyLog>> getAnomalyLogs(@PathVariable String deviceId) {
-        return ResponseEntity.ok(anomalyService.getLogs(deviceId));
-    }
-
-    @GetMapping("/{deviceId}/compliance-logs")
-    public ResponseEntity<List<ComplianceLog>> getComplianceLogs(@PathVariable String deviceId) {
-        return ResponseEntity.ok(complianceService.getLogs(deviceId));
-    }
-
-    @GetMapping("/{deviceId}/context-logs")
-    public ResponseEntity<List<LocationNetworkChange>> getContextLogs(@PathVariable String deviceId) {
-        return ResponseEntity.ok(contextService.getChanges(deviceId));
+        return ResponseEntity.ok(trustService.getTrustScore(deviceId));
     }
 }
-
-// You may implement DeviceRegistryService to delegate to repository, and similar getLogs methods in each service.

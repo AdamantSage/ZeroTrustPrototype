@@ -10,7 +10,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/identity")
-@CrossOrigin(origins = "*") // Allow cross-origin requests (e.g., from React frontend)
 public class IdentityController {
 
     private final IdentityVerificationService identityService;
@@ -19,23 +18,13 @@ public class IdentityController {
         this.identityService = identityService;
     }
 
-    /**
-     * POST /api/identity/verify
-     * Verifies device identity.
-     */
     @PostMapping("/verify")
-    public ResponseEntity<Boolean> verifyIdentity(@RequestBody Map<String, Object> telemetry) {
-        boolean verified = identityService.verifyIdentity(telemetry);
-        return ResponseEntity.ok(verified);
+    public ResponseEntity<Boolean> verify(@RequestBody Map<String, Object> telemetry) {
+        return ResponseEntity.ok(identityService.verifyIdentity(telemetry));
     }
 
-    /**
-     * GET /api/identity/logs/{deviceId}
-     * Returns all identity logs for a specific device.
-     */
     @GetMapping("/logs/{deviceId}")
     public ResponseEntity<List<IdentityLog>> getLogs(@PathVariable String deviceId) {
-        List<IdentityLog> logs = identityService.getLogs(deviceId);
-        return ResponseEntity.ok(logs);
+        return ResponseEntity.ok(identityService.getLogs(deviceId));
     }
 }
