@@ -49,14 +49,38 @@ public class LocationNetworkChangeService {
         return unchanged;
     }
 
+    /**
+     * Get location changes for a specific device
+     */
+    public List<LocationNetworkChange> getChanges(String deviceId) {
+        return changeRepo.findByDeviceIdOrderByTimestampDesc(deviceId);
+    }
+
+    /**
+     * Get all location changes ordered by timestamp
+     */
+    public List<LocationNetworkChange> getAllChanges() {
+        return changeRepo.findAllByOrderByTimestampDesc();
+    }
+
+    /**
+     * Get count of unique devices that have location/network changes
+     */
+    public long getDeviceCountWithChanges() {
+        try {
+            return changeRepo.countDistinctDeviceIds();
+        } catch (Exception e) {
+            System.err.println("Error getting device count with changes: " + e.getMessage());
+            return 0;
+        }
+    }
+
     // Internal holder for last context
     private static class Context {
         final String location, ip;
-        Context(String location, String ip) { this.location = location; this.ip = ip; }
+        Context(String location, String ip) { 
+            this.location = location; 
+            this.ip = ip; 
+        }
     }
-
-    public List<LocationNetworkChange> getChanges(String deviceId) {
-    return changeRepo.findByDeviceId(deviceId);
-}
-
 }

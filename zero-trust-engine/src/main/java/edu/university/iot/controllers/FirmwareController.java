@@ -1,6 +1,7 @@
+// src/main/java/edu/university/iot/controllers/FirmwareController.java
 package edu.university.iot.controllers;
 
-import edu.university.iot.model.FirmwareLog;
+import edu.university.iot.model.dtoModel.FirmwareLogDto;
 import edu.university.iot.service.FirmwareService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +25,12 @@ public class FirmwareController {
     }
 
     @GetMapping("/logs/{deviceId}")
-    public ResponseEntity<List<FirmwareLog>> getLogs(@PathVariable String deviceId) {
-        return ResponseEntity.ok(firmwareService.getLogs(deviceId));
+    public ResponseEntity<List<FirmwareLogDto>> getLogs(@PathVariable String deviceId) {
+        return ResponseEntity.ok(firmwareService.getLogsDto(deviceId));
+    }
+
+    @GetMapping("/summary/{deviceId}")
+    public ResponseEntity<FirmwareLogDto> getLatestSummary(@PathVariable String deviceId) {
+        return ResponseEntity.ok(firmwareService.getLatestLogDto(deviceId));
     }
 }

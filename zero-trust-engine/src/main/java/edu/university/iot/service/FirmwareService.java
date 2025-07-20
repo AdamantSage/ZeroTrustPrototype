@@ -3,16 +3,20 @@ package edu.university.iot.service;
 
 import edu.university.iot.entity.DeviceRegistry;
 import edu.university.iot.model.FirmwareLog;
+import edu.university.iot.model.dtoModel.FirmwareLogDto;
 import edu.university.iot.repository.DeviceRegistryRepository;
 import edu.university.iot.repository.FirmwareLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class FirmwareService {
@@ -76,7 +80,49 @@ public class FirmwareService {
         }
         return 0;
     }
-    public List<FirmwareLog> getLogs(String deviceId) {
-    return firmwareLogRepo.findByDeviceId(deviceId);
+
+    public List<FirmwareLogDto> getLogsDto(String deviceId) {
+        return firmwareLogRepo.findByDeviceIdOrderByTimestampDesc(deviceId).stream()
+                .map(log -> new FirmwareLogDto(
+                        log.getDeviceId(),
+                        log.getFirmwareVersion(),
+                        // pull expected from registry if available, else blank
+                        registryRepo.findById(deviceId)
+                                .map(DeviceRegistry::getExpectedFirmwareVersion)
+                                .orElse("Unknown"),
+                        log.getReportedPatchStatus(),
+                        log.isFirmwareValid(),
+                        log.getTimestamp().atZone(ZoneId.systemDefault()).toInstant()))
+                .collect(Collectors.toList());
+    }
+
+    public FirmwareLogDto getLatestLogDto(String deviceId) {
+        FirmwareLogDto defaultDto = new FirmwareLogDto(
+                deviceId, "Unknown", "Unknown", "Unknown", true, Instant.now());
+        return firmwareLogRepo.findTopByDeviceIdOrderByTimestampDesc(deviceId)
+                .map(log -> new FirmwareLogDto(
+                        log.getDeviceId(),
+                        log.getFirmwareVersion(),
+                        registryRepo.findById(deviceId)
+                                .map(DeviceRegistry::getExpectedFirmwareVersion)
+                                .orElse("Unknown"),
+                        log.getReportedPatchStatus(),
+                        log.isFirmwareValid(),
+                        log.getTimestamp().atZone(ZoneId.systemDefault()).toInstant()))
+                .orElse(defaultDto);
+    }
+    public List<FirmwareLogDto> getAllLogsDto() {
+    return firmwareLogRepo.findAllByOrderByTimestampDesc().stream()
+            .map(log -> new FirmwareLogDto(
+                    log.getDeviceId(),
+                    log.getFirmwareVersion(),
+                    // pull expected from registry if available, else blank
+                    registryRepo.findById(log.getDeviceId())
+                            .map(DeviceRegistry::getExpectedFirmwareVersion)
+                            .orElse("Unknown"),
+                    log.getReportedPatchStatus(),
+                    log.isFirmwareValid(),
+                    log.getTimestamp().atZone(ZoneId.systemDefault()).toInstant()))
+            .collect(Collectors.toList());
 }
 }

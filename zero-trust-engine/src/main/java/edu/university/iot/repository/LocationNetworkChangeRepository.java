@@ -3,8 +3,15 @@ package edu.university.iot.repository;
 
 import edu.university.iot.model.LocationNetworkChange;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 import java.util.List;
 
-public interface LocationNetworkChangeRepository extends JpaRepository<LocationNetworkChange, Long> {
-    List<LocationNetworkChange> findByDeviceId(String deviceId);
+@Repository
+public interface LocationNetworkChangeRepository 
+    extends JpaRepository<LocationNetworkChange, Long> {
+  List<LocationNetworkChange> findAllByOrderByTimestampDesc();
+  List<LocationNetworkChange> findByDeviceIdOrderByTimestampDesc(String deviceId);
+  @Query("SELECT COUNT(DISTINCT l.deviceId) FROM LocationNetworkChange l")
+  long countDistinctDeviceIds();
 }
