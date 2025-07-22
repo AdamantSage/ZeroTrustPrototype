@@ -2,8 +2,6 @@ package edu.university.iot.service;
 
 import edu.university.iot.model.dtoModel.AuditSummaryDto;
 import edu.university.iot.repository.QuarantineLogRepository;
-import edu.university.iot.service.LocationNetworkChangeService;
-import edu.university.iot.service.FirmwareService;
 import org.springframework.stereotype.Service;
 
 @Service

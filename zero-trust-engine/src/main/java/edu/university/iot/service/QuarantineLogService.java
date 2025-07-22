@@ -1,7 +1,5 @@
 // src/main/java/edu/university/iot/service/QuarantineLogService.java
 package edu.university.iot.service;
-
-import edu.university.iot.model.QuarantineLog;
 import edu.university.iot.model.dtoModel.QuarantineLogDto;
 import edu.university.iot.repository.QuarantineLogRepository;
 import org.springframework.stereotype.Service;

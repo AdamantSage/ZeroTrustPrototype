@@ -2,7 +2,6 @@
 package edu.university.iot.model.dtoModel;
 
 import java.util.List;
-import java.util.Optional;
 
 import edu.university.iot.model.AnomalyLog;
 import edu.university.iot.model.ComplianceLog;
