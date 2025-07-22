@@ -1,11 +1,9 @@
 // src/pages/Dashboard.js
+
 import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/common/Sidebar';
 import Header from '../components/common/Header';
-import {
-  getDevices,
-  quarantineDevice
-} from '../services/deviceService';
+import { getDevices, quarantineDevice } from '../services/deviceService';
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -43,13 +41,18 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 text-gray-800">
+    <div className="flex h-screen w-screen overflow-hidden bg-gray-100 text-gray-800">
+      {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
 
-      <div className={`flex flex-col flex-1 transition-all duration-300 ${sidebarOpen ? '' : ''}`}>
+      {/* Main content wrapper */}
+      <div className="flex flex-col flex-1 w-full transition-all duration-300 lg:ml-64">
+
+        {/* Header */}
         <Header onMenuToggle={toggleSidebar} />
 
-        <main className="flex-1 p-6 overflow-y-auto w-full">
+        {/* Main section */}
+        <main className="flex-1 w-full max-w-full p-6 overflow-y-auto">
           <h1 className="text-3xl font-bold mb-6">📊 Device Dashboard</h1>
 
           {loading ? (
@@ -73,7 +76,9 @@ export default function Dashboard() {
                   {devices.map(d => (
                     <tr key={d.deviceId} className="hover:bg-gray-50">
                       <td className="px-6 py-4 font-medium">{d.deviceId}</td>
-                      <td className="px-6 py-4">{d.lastSeen ? new Date(d.lastSeen).toLocaleString() : '—'}</td>
+                      <td className="px-6 py-4">
+                        {d.lastSeen ? new Date(d.lastSeen).toLocaleString() : '—'}
+                      </td>
                       <td className="px-6 py-4">{d.location}</td>
                       <td className="px-6 py-4">{d.ipAddress}</td>
                       <td className="px-6 py-4">
@@ -82,9 +87,7 @@ export default function Dashboard() {
                           : <span className="text-red-500 font-bold">❌</span>}
                       </td>
                       <td className="px-6 py-4">{d.trustScore.toFixed(1)}</td>
-                      <td className="px-6 py-4">
-                        {d.quarantined ? 'Yes' : 'No'}
-                      </td>
+                      <td className="px-6 py-4">{d.quarantined ? 'Yes' : 'No'}</td>
                       <td className="px-6 py-4">
                         {!d.quarantined && (
                           <button
@@ -104,6 +107,7 @@ export default function Dashboard() {
         </main>
       </div>
 
+      {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"

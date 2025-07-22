@@ -12,7 +12,7 @@ export default function AuditPage() {
   const [selectedDevice, setSelectedDevice] = useState('');
   const [devices, setDevices] = useState([]);
   const [error, setError] = useState(null);
-  
+
   // Data states
   const [locationChanges, setLocationChanges] = useState([]);
   const [quarantineHistory, setQuarantineHistory] = useState([]);
@@ -43,16 +43,16 @@ export default function AuditPage() {
   const fetchInitialData = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Fetch devices list for filter dropdown
       const deviceList = await auditService.getDevices();
       setDevices(deviceList);
-      
+
       // Fetch audit summary
       const summary = await auditService.getAuditSummary();
       setAuditSummary(summary);
-      
+
       // Fetch all audit data initially
       await fetchAllData();
     } catch (err) {
@@ -116,7 +116,7 @@ export default function AuditPage() {
       ALREADY_QUARANTINED: 'bg-blue-100 text-blue-800',
       RECREATED: 'bg-purple-100 text-purple-800'
     };
-    
+
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[status] || 'bg-gray-100 text-gray-800'}`}>
         {status}
@@ -132,7 +132,7 @@ export default function AuditPage() {
 
   const renderSummaryCards = () => {
     if (!auditSummary) return null;
-    
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-6">
@@ -146,7 +146,7 @@ export default function AuditPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -158,7 +158,7 @@ export default function AuditPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -170,7 +170,7 @@ export default function AuditPage() {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -381,7 +381,7 @@ export default function AuditPage() {
 
   if (error) {
     return (
-      <div className="flex h-screen bg-gray-100 text-gray-800">
+      <div className="flex h-screen w-screen overflow-hidden bg-gray-100 text-gray-800">
         <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
         <div className="flex flex-col flex-1">
           <Header onMenuToggle={toggleSidebar} />
@@ -392,7 +392,7 @@ export default function AuditPage() {
                 <div>
                   <h3 className="text-sm font-medium text-red-800">Error loading audit data</h3>
                   <p className="text-sm text-red-700 mt-1">{error}</p>
-                  <button 
+                  <button
                     onClick={() => {
                       setError(null);
                       fetchInitialData();
@@ -411,10 +411,11 @@ export default function AuditPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 text-gray-800">
+    <div className="flex h-screen w-screen overflow-hidden bg-gray-100 text-gray-800">
       <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
 
-      <div className={`flex flex-col flex-1 transition-all duration-300 ${sidebarOpen ? '' : ''}`}>
+      <div className="flex flex-col flex-1 w-full transition-all duration-300 lg:ml-64">
+
         <Header onMenuToggle={toggleSidebar} />
 
         <main className="flex-1 p-6 overflow-y-auto w-full">
@@ -455,27 +456,26 @@ export default function AuditPage() {
 
           {/* Tab Navigation */}
           <div className="border-b border-gray-200 mb-6">
-  <nav className="-mb-px flex space-x-8">
-    {tabs.map(tab => (
-      <button
-        key={tab.id}
-        onClick={() => {
-          setActiveTab(tab.id);
-          // Push the new tab into the URL query ?tab=<tab.id>
-          setSearchParams({ tab: tab.id });
-        }}
-        className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-          activeTab === tab.id
-            ? 'border-blue-500 text-blue-600'
-            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-        }`}
-      >
-        <span className="mr-2">{tab.icon}</span>
-        {tab.name}
-      </button>
-    ))}
-  </nav>
-</div>
+            <nav className="-mb-px flex space-x-8">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    // Push the new tab into the URL query ?tab=<tab.id>
+                    setSearchParams({ tab: tab.id });
+                  }}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                >
+                  <span className="mr-2">{tab.icon}</span>
+                  {tab.name}
+                </button>
+              ))}
+            </nav>
+          </div>
 
           {/* Content */}
           {loading ? (
