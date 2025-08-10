@@ -28,6 +28,33 @@ public class LocationNetworkChange {
     @Column(name = "timestamp", nullable = false)
     private LocalDateTime timestamp;
 
+    // Added coordinate fields for enhanced location tracking
+    @Column(name = "old_latitude")
+    private Double oldLatitude;
+
+    @Column(name = "old_longitude")
+    private Double oldLongitude;
+
+    @Column(name = "new_latitude")
+    private Double newLatitude;
+
+    @Column(name = "new_longitude")
+    private Double newLongitude;
+
+    // Constructors
+    public LocationNetworkChange() {}
+
+    public LocationNetworkChange(String deviceId, String oldLocation, String newLocation,
+                                String oldIpAddress, String newIpAddress, LocalDateTime timestamp) {
+        this.deviceId = deviceId;
+        this.oldLocation = oldLocation;
+        this.newLocation = newLocation;
+        this.oldIpAddress = oldIpAddress;
+        this.newIpAddress = newIpAddress;
+        this.timestamp = timestamp;
+    }
+
+    // Existing getters and setters
     public Long getId() {
         return id;
     }
@@ -84,5 +111,53 @@ public class LocationNetworkChange {
         this.timestamp = timestamp;
     }
 
-    
+    // New coordinate getters and setters
+    public Double getOldLatitude() {
+        return oldLatitude;
+    }
+
+    public void setOldLatitude(Double oldLatitude) {
+        this.oldLatitude = oldLatitude;
+    }
+
+    public Double getOldLongitude() {
+        return oldLongitude;
+    }
+
+    public void setOldLongitude(Double oldLongitude) {
+        this.oldLongitude = oldLongitude;
+    }
+
+    public Double getNewLatitude() {
+        return newLatitude;
+    }
+
+    public void setNewLatitude(Double newLatitude) {
+        this.newLatitude = newLatitude;
+    }
+
+    public Double getNewLongitude() {
+        return newLongitude;
+    }
+
+    public void setNewLongitude(Double newLongitude) {
+        this.newLongitude = newLongitude;
+    }
+
+    @Override
+    public String toString() {
+        return "LocationNetworkChange{" +
+                "id=" + id +
+                ", deviceId='" + deviceId + '\'' +
+                ", oldLocation='" + oldLocation + '\'' +
+                ", newLocation='" + newLocation + '\'' +
+                ", oldIpAddress='" + oldIpAddress + '\'' +
+                ", newIpAddress='" + newIpAddress + '\'' +
+                ", timestamp=" + timestamp +
+                ", oldLatitude=" + oldLatitude +
+                ", oldLongitude=" + oldLongitude +
+                ", newLatitude=" + newLatitude +
+                ", newLongitude=" + newLongitude +
+                '}';
+    }
 }
