@@ -23,14 +23,12 @@ import {
   MapIcon
 } from 'lucide-react';
 
+// Update these relative imports to match your project layout.
+// This file lives at: src/components/Enhanced/EnhancedPanel.jsx
+// Services live at: src/services/*.js
 import { getDevices as fetchDevices, quarantineDevice } from '../services/deviceService';
 import { getAuditSummary as fetchAuditSummary } from '../services/AuditService';
 
-/**
- * EnhancedPanel
- * - Uses fetchDevices and fetchAuditSummary
- * - Keeps theme consistent with your existing layout
- */
 export default function EnhancedPanel({ initialDevices = [], loading: parentLoading = false, onQuarantine }) {
   const [devices, setDevices] = useState(initialDevices || []);
   const [loading, setLoading] = useState(parentLoading);
@@ -41,7 +39,6 @@ export default function EnhancedPanel({ initialDevices = [], loading: parentLoad
   const [auditSummary, setAuditSummary] = useState(null);
 
   useEffect(() => {
-    // If parent passed devices, use them; otherwise fetch.
     if (!initialDevices || initialDevices.length === 0) {
       loadDevices();
     } else {
@@ -86,10 +83,15 @@ export default function EnhancedPanel({ initialDevices = [], loading: parentLoad
   const handleQuarantineLocal = async (deviceId) => {
     const reason = prompt('Quarantine reason?');
     if (!reason) return;
-    if (onQuarantine) await onQuarantine(deviceId, reason);
-    else await quarantineDevice(deviceId, reason);
+    try {
+      if (onQuarantine) await onQuarantine(deviceId, reason);
+      else await quarantineDevice(deviceId, reason);
 
-    setDevices(ds => ds.map(d => d.deviceId === deviceId ? { ...d, quarantined: true, trusted: false, status: 'QUARANTINED' } : d));
+      setDevices(ds => ds.map(d => (d.deviceId === deviceId ? { ...d, quarantined: true, trusted: false, status: 'QUARANTINED' } : d)));
+    } catch (err) {
+      console.error('Quarantine failed', err);
+      alert('Failed to quarantine device');
+    }
   };
 
   const filteredDevices = devices.filter(device => {
@@ -157,8 +159,8 @@ export default function EnhancedPanel({ initialDevices = [], loading: parentLoad
           </div>
 
           <div className="flex items-center space-x-2">
-            <button onClick={() => setView('current')} className={`px-3 py-1 rounded ${view === 'current' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-700'}`}><Eye className="w-4 h-4 inline mr-1" />Live</button>
-            <button onClick={() => setView('historical')} className={`px-3 py-1 rounded ${view === 'historical' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-700'}`}><BarChart3 className="w-4 h-4 inline mr-1" />Analytics</button>
+            <button type="button" onClick={() => setView('current')} className={`px-3 py-1 rounded ${view === 'current' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-700'}`}><Eye className="w-4 h-4 inline mr-1" />Live</button>
+            <button type="button" onClick={() => setView('historical')} className={`px-3 py-1 rounded ${view === 'historical' ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-700'}`}><BarChart3 className="w-4 h-4 inline mr-1" />Analytics</button>
           </div>
         </div>
 
@@ -175,7 +177,7 @@ export default function EnhancedPanel({ initialDevices = [], loading: parentLoad
       <div className="p-4 border-b">
         <div className="flex flex-wrap gap-2">
           {['all', 'trusted', 'suspicious', 'quarantined'].map(option => (
-            <button key={option} onClick={() => setFilter(option)} className={`px-3 py-1 rounded text-sm ${filter === option ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border'}`}>
+            <button key={option} type="button" onClick={() => setFilter(option)} className={`px-3 py-1 rounded text-sm ${filter === option ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border'}`}>
               {option === 'all' ? 'All Devices' : option.charAt(0).toUpperCase() + option.slice(1)}
             </button>
           ))}
@@ -245,8 +247,8 @@ export default function EnhancedPanel({ initialDevices = [], loading: parentLoad
                     <div className="text-xs text-gray-600">{selectedDevice.location || '—'} • {selectedDevice.ipAddress || '—'}</div>
                   </div>
                   <div className="space-x-2">
-                    {!selectedDevice.quarantined && <button onClick={() => handleQuarantineLocal(selectedDevice.deviceId)} className="px-3 py-1 bg-red-500 text-white text-sm rounded">Quarantine</button>}
-                    <button onClick={() => setSelectedDevice(null)} className="px-3 py-1 bg-gray-100 text-sm rounded">Close</button>
+                    {!selectedDevice.quarantined && <button type="button" onClick={() => handleQuarantineLocal(selectedDevice.deviceId)} className="px-3 py-1 bg-red-500 text-white text-sm rounded">Quarantine</button>}
+                    <button type="button" onClick={() => setSelectedDevice(null)} className="px-3 py-1 bg-gray-100 text-sm rounded">Close</button>
                   </div>
                 </div>
 
@@ -257,7 +259,6 @@ export default function EnhancedPanel({ initialDevices = [], loading: parentLoad
                 </div>
               </div>
             )}
-
           </div>
 
           <div className="space-y-4">
@@ -271,7 +272,11 @@ export default function EnhancedPanel({ initialDevices = [], loading: parentLoad
   );
 }
 
-/* --------------------------- Small reusable pieces ------------------------- */
+/* ---------------------------------------------------------
+   Small components: SmallStat, TrustPanel, CampusMap, AlertsPanel, SystemHealth
+   (kept compact / readable)
+   --------------------------------------------------------- */
+
 function SmallStat({ icon, title, value }) {
   return (
     <div className="bg-white p-3 rounded-md border flex items-center space-x-3">
@@ -309,8 +314,8 @@ function TrustPanel({ device, onClose, onQuarantine }) {
           </div>
         </div>
         <div className="space-x-2">
-          <button onClick={() => onQuarantine(device.deviceId)} className="px-3 py-1 bg-red-500 text-white rounded text-sm">Quarantine</button>
-          <button onClick={onClose} className="px-3 py-1 bg-gray-100 rounded text-sm">Close</button>
+          <button type="button" onClick={() => onQuarantine(device.deviceId)} className="px-3 py-1 bg-red-500 text-white rounded text-sm">Quarantine</button>
+          <button type="button" onClick={onClose} className="px-3 py-1 bg-gray-100 rounded text-sm">Close</button>
         </div>
       </div>
 
@@ -331,7 +336,9 @@ function TrustPanel({ device, onClose, onQuarantine }) {
               </div>
             </div>
             <div className="mt-2">
-              <div className="w-full bg-gray-200 rounded-full h-2"><div className={`${f.score >= 80 ? 'bg-green-500' : f.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${f.score}%` }} /></div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className={`${f.score >= 80 ? 'bg-green-500' : f.score >= 60 ? 'bg-yellow-500' : 'bg-red-500'} h-2 rounded-full`} style={{ width: `${f.score}%` }} />
+              </div>
             </div>
           </div>
         ))}
@@ -350,36 +357,128 @@ function TrustPanel({ device, onClose, onQuarantine }) {
 }
 
 function CampusMap({ devices = [] }) {
+  const deviceLocations = useMemo(() => devices.map(d => ({
+    deviceId: d.deviceId,
+    trustScore: Math.round(d.trustScore || 0),
+    riskLevel: d.riskLevel || 'LOW',
+    coordinates: d.coordinates || null,
+    locationType: d.locationType || ''
+  })), [devices]);
+
+  const positionsPreset = [
+    { left: '15%', top: '25%' },
+    { left: '85%', top: '25%' },
+    { left: '15%', top: '75%' },
+    { left: '85%', top: '75%' },
+    { left: '50%', top: '10%' },
+    { left: '50%', top: '85%' }
+  ];
+
   return (
-    <div className="bg-white border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="font-medium"><MapIcon className="w-4 h-4 inline mr-2" />Campus Map</div>
-        <div className="text-xs text-gray-500">Real-time</div>
+    <div className="bg-white rounded-xl shadow-sm border">
+      <div className="p-6 border-b">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center">
+          <MapIcon className="w-5 h-5 mr-2" />
+          Campus Map
+        </h2>
       </div>
 
-      <div className="relative bg-gradient-to-br from-green-50 to-blue-50 rounded-lg h-48 p-3 border overflow-hidden">
-        <div className="absolute top-6 left-6 w-16 h-10 bg-blue-200 rounded shadow-sm border flex items-center justify-center text-xs">Library</div>
-        <div className="absolute top-6 right-6 w-16 h-10 bg-purple-200 rounded shadow-sm border flex items-center justify-center text-xs">Lab</div>
-        <div className="absolute bottom-6 left-6 w-16 h-10 bg-red-200 rounded shadow-sm border flex items-center justify-center text-xs">Admin</div>
-        <div className="absolute bottom-6 right-6 w-16 h-10 bg-green-200 rounded shadow-sm border flex items-center justify-center text-xs">Student</div>
+      <div className="p-6">
+        <div className="relative bg-gradient-to-br from-green-50 to-blue-50 rounded-lg h-80 p-4 border overflow-hidden">
+          <div className="text-center text-sm font-medium text-gray-700 mb-4">University Campus - Real-time Device Locations</div>
 
-        {devices.slice(0, 6).map((d, i) => {
-          const pos = [
-            { left: '15%', top: '25%' },
-            { left: '80%', top: '20%' },
-            { left: '15%', top: '75%' },
-            { left: '80%', top: '75%' },
-            { left: '50%', top: '10%' },
-            { left: '50%', top: '85%' }
-          ][i] || { left: '50%', top: '50%' };
-          const color = (d.riskLevel === 'CRITICAL') ? 'bg-red-500 animate-pulse' : (d.riskLevel === 'HIGH') ? 'bg-orange-500' : (d.riskLevel === 'MEDIUM') ? 'bg-yellow-500' : 'bg-green-500';
-          return (
-            <div key={d.deviceId} className="absolute group" style={{ left: pos.left, top: pos.top }}>
-              <div className={`w-4 h-4 rounded-full border-2 border-white shadow ${color}`} title={`${d.deviceId} • Trust ${Math.round(d.trustScore || 0)}`}></div>
-              <div className="absolute -bottom-6 -left-6 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-xs rounded px-2 py-1">{d.deviceId}</div>
+          {/* Buildings */}
+          <div className="absolute top-12 left-6 w-16 h-12 bg-blue-200 rounded-lg shadow-sm border border-blue-300 flex items-center justify-center text-xs">
+            <div className="text-center">
+              <div className="text-xs font-medium">Library</div>
+              <div className="text-xs text-blue-600">Academic</div>
             </div>
-          );
-        })}
+          </div>
+
+          <div className="absolute top-12 right-6 w-16 h-12 bg-purple-200 rounded-lg shadow-sm border border-purple-300 flex items-center justify-center text-xs">
+            <div className="text-center">
+              <div className="text-xs font-medium">Lab</div>
+              <div className="text-xs text-purple-600">Research</div>
+            </div>
+          </div>
+
+          <div className="absolute bottom-16 left-6 w-16 h-12 bg-red-200 rounded-lg shadow-sm border border-red-300 flex items-center justify-center text-xs">
+            <div className="text-center">
+              <div className="text-xs font-medium">Admin</div>
+              <div className="text-xs text-red-600">Restricted</div>
+            </div>
+          </div>
+
+          <div className="absolute bottom-16 right-6 w-16 h-12 bg-green-200 rounded-lg shadow-sm border border-green-300 flex items-center justify-center text-xs">
+            <div className="text-center">
+              <div className="text-xs font-medium">Student</div>
+              <div className="text-xs text-green-600">Social</div>
+            </div>
+          </div>
+
+          {/* Off-campus */}
+          <div className="absolute top-6 left-1/2 transform -translate-x-1/2 w-14 h-8 bg-orange-200 rounded shadow-sm border border-orange-300 flex items-center justify-center text-xs">
+            <div className="text-xs font-medium">Off-Campus</div>
+          </div>
+
+          {/* Markers */}
+          {deviceLocations.map((device, idx) => {
+            const pos = positionsPreset[idx] || positionsPreset[0];
+            const isCritical = device.riskLevel === 'CRITICAL';
+            const isHigh = device.riskLevel === 'HIGH';
+            const isMedium = device.riskLevel === 'MEDIUM';
+            const markerClass = isCritical ? 'bg-red-500 animate-pulse' : isHigh ? 'bg-orange-500' : isMedium ? 'bg-yellow-500' : 'bg-green-500';
+
+            return (
+              <div key={device.deviceId} className="absolute" style={{ left: pos.left, top: pos.top }}>
+                <div className={`relative w-5 h-5 rounded-full border-2 border-white shadow-lg transform transition-all hover:scale-110 ${markerClass}`} title={`${device.deviceId} - Trust: ${device.trustScore}`} />
+                {isCritical && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-60" />}
+              </div>
+            );
+          })}
+
+          {/* SVG lines for HIGH/CRITICAL */}
+          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+            {deviceLocations
+              .map((d, i) => ({ d, i }))
+              .filter(({ d }) => d.riskLevel === 'HIGH' || d.riskLevel === 'CRITICAL')
+              .map(({ d, i }, idx) => {
+                const end = positionsPreset[i] || positionsPreset[0];
+                return (
+                  <line
+                    key={idx}
+                    x1="50%"
+                    y1="10%"
+                    x2={end.left}
+                    y2={end.top}
+                    stroke="#ef4444"
+                    strokeWidth="1"
+                    strokeDasharray="4,3"
+                    opacity="0.6"
+                  />
+                );
+              })}
+          </svg>
+        </div>
+
+        {/* Legend */}
+        <div className="mt-4 space-y-3">
+          <div className="text-sm font-medium text-gray-700">Device Risk Levels</div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-green-500 rounded-full" /> <span>Low Risk</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-yellow-500 rounded-full" /> <span>Medium Risk</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-orange-500 rounded-full" /> <span>High Risk</span></div>
+            <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" /> <span>Critical</span></div>
+          </div>
+
+          <div className="text-sm font-medium text-gray-700 pt-2">Location Types</div>
+          <div className="grid grid-cols-1 gap-1 text-xs">
+            <div className="flex items-center justify-between"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">Academic</span><span className="text-gray-600">Libraries, Classrooms</span></div>
+            <div className="flex items-center justify-between"><span className="px-2 py-1 bg-purple-100 text-purple-800 rounded">Lab</span><span className="text-gray-600">Research Labs</span></div>
+            <div className="flex items-center justify-between"><span className="px-2 py-1 bg-red-100 text-red-800 rounded">Restricted</span><span className="text-gray-600">Admin Areas</span></div>
+            <div className="flex items-center justify-between"><span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">External</span><span className="text-gray-600">Off-Campus</span></div>
+          </div>
+        </div>
       </div>
     </div>
   );
