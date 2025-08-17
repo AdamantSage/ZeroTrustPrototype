@@ -1,83 +1,55 @@
-// src/components/DeviceDetails.js
-import React, { useEffect, useState } from 'react';
-import {
-  getDevice,
-  getTrustScore,
-  quarantineDevice,
-  getIdentityLogs,
-  getFirmwareLogs,
-  getAnomalyLogs,
-  getComplianceLogs,
-  getLocationChanges,
-  getSession
-} from '../services/deviceService';
+// src/components/Enhanced/DeviceDetails.js
+import React from 'react';
 
-export default function DeviceDetails({ deviceId, onBack }) {
-  const [device, setDevice] = useState(null);
-  const [logs, setLogs] = useState({});
-  const [reason, setReason] = useState('');
-
-  useEffect(() => {
-    getDevice(deviceId).then(setDevice);
-    getTrustScore(deviceId).then(score =>
-      setDevice(d => ({ ...d, trustScore: score }))
-    );
-    Promise.all({
-      identity: getIdentityLogs(deviceId),
-      firmware: getFirmwareLogs(deviceId),
-      anomaly: getAnomalyLogs(deviceId),
-      compliance: getComplianceLogs(deviceId),
-      context: getLocationChanges(deviceId),
-      session: getSession(deviceId)
-    }).then(setLogs);
-  }, [deviceId]);
-
-  const handleQuarantine = () => {
-    quarantineDevice(deviceId, reason).then(() =>
-      alert('Device quarantined')
-    );
-  };
-
-  if (!device) return <div>Loading...</div>;
-
+export default function DeviceDetails({ device, onQuarantine, onClose, getRiskColor }) {
   return (
-    <div className="p-4">
-      <button
-        onClick={onBack}
-        className="mb-4 px-2 py-1 bg-gray-500 text-white rounded"
-      >
-        ← Back to list
-      </button>
-
-      <h2 className="text-xl font-bold mb-2">Details for {device.deviceId}</h2>
-      <p>Trusted: {device.trusted ? '✅' : '❌'}</p>
-      <p>Trust Score: {device.trustScore.toFixed(1)}</p>
-
-      <div className="mt-4">
-        <label>Quarantine Reason:</label>
-        <input
-          value={reason}
-          onChange={e => setReason(e.target.value)}
-          className="border p-1 ml-2"
-        />
-        <button
-          onClick={handleQuarantine}
-          className="ml-2 px-2 py-1 bg-red-500 text-white rounded"
-        >
-          Quarantine
-        </button>
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-semibold">{device.name || device.deviceId}</div>
+          <div className="text-xs text-gray-600">
+            {device.location || '–'} • {device.ipAddress || '–'}
+          </div>
+        </div>
+        <div className="space-x-2">
+          {!device.quarantined && (
+            <button 
+              type="button" 
+              onClick={() => onQuarantine(device.deviceId)} 
+              className="px-3 py-1 bg-red-500 text-white text-sm rounded"
+            >
+              Quarantine
+            </button>
+          )}
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="px-3 py-1 bg-gray-100 text-sm rounded"
+          >
+            Close
+          </button>
+        </div>
       </div>
 
-      <div className="mt-6">
-        <h3 className="font-semibold">Logs</h3>
-        {['identity','firmware','anomaly','compliance','context','session'].map(key => (
-          <div key={key} className="mt-4">
-            <h4 className="font-medium capitalize">{key} Logs</h4>
-            <pre className="bg-gray-100 p-2 rounded h-32 overflow-auto">
-              {JSON.stringify(logs[key], null, 2)}
-            </pre>
+      <div className="mt-4 grid grid-cols-3 gap-4 text-xs text-gray-600">
+        <div>
+          <div className="font-medium">Firmware</div>
+          <div className={`${device.firmwareValid ? 'text-green-600' : 'text-red-600'}`}>
+            {device.firmwareVersion || '–'}
           </div>
-        ))}
+        </div>
+        <div>
+          <div className="font-medium">Suspicious</div>
+          <div className={`${(device.suspiciousActivityScore || 0) > 5 ? 'text-red-600' : 'text-green-600'}`}>
+            Level {device.suspiciousActivityScore || 0}/10
+          </div>
+        </div>
+        <div>
+          <div className="font-medium">Location Risk</div>
+          <div className={`${getRiskColor(device.riskLevel)}`}>
+            {device.riskLevel || 'N/A'}
+          </div>
+        </div>
       </div>
     </div>
   );

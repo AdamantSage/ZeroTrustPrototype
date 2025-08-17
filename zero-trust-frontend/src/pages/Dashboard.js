@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import Sidebar from '../components/common/Sidebar';
 import Header from '../components/common/Header';
 import { getDevices, quarantineDevice } from '../services/deviceService';
-import EnhancedPanel from '../components/EnhancedPanel';
+import EnhancedPanel from '../components/EnhancedComponent/EnhancedPanel';
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
