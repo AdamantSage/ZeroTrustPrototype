@@ -10,7 +10,7 @@ import edu.university.iot.repository.DeviceRegistryRepository;
 @Service
 public class TelemetryProcessorService {
 
-    private final LocationNetworkChangeService contextService;
+    private final LocationService contextService;
     private final SessionManagementService sessionService;
     private final IdentityVerificationService identityService;
     private final FirmwareService firmwareService;
@@ -21,7 +21,7 @@ public class TelemetryProcessorService {
     private final DeviceRegistryRepository registryRepo;
 
     public TelemetryProcessorService(
-        LocationNetworkChangeService contextService,
+        LocationService contextService,
         SessionManagementService sessionService,
         IdentityVerificationService identityService,
         FirmwareService firmwareService,

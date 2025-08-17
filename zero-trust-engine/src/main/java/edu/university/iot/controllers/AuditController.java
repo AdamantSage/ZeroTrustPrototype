@@ -4,7 +4,7 @@ import edu.university.iot.model.LocationNetworkChange;
 import edu.university.iot.model.QuarantineLog;
 import edu.university.iot.model.dtoModel.AuditSummaryDto;
 import edu.university.iot.model.dtoModel.FirmwareLogDto;
-import edu.university.iot.service.LocationNetworkChangeService;
+import edu.university.iot.service.LocationService;
 import edu.university.iot.service.FirmwareService;
 import edu.university.iot.service.AuditSummaryService;
 import edu.university.iot.repository.QuarantineLogRepository;
@@ -17,13 +17,13 @@ import java.util.List;
 @RequestMapping("/api/audit")
 public class AuditController {
 
-    private final LocationNetworkChangeService locationService;
+    private final LocationService locationService;
     private final QuarantineLogRepository quarantineLogRepo;
     private final FirmwareService firmwareService;
     private final AuditSummaryService auditSummaryService;
 
     public AuditController(
-            LocationNetworkChangeService locationService,
+            LocationService locationService,
             QuarantineLogRepository quarantineLogRepo,
             FirmwareService firmwareService,
             AuditSummaryService auditSummaryService) {

@@ -24,6 +24,45 @@ public class DeviceMessage {
     private boolean malwareSignatureDetected;
     private int sessionDuration;
     private Instant timestamp;
+    @Embedded
+    private CoordinateData coordinates;
+
+    private int suspiciousActivityScore;
+    private int consecutiveAnomalies;
+    public CoordinateData getCoordinates() {
+        return coordinates;
+    }
+
+
+    public void setCoordinates(CoordinateData coordinates) {
+        this.coordinates = coordinates;
+    }
+
+    public int getSuspiciousActivityScore() {
+        return suspiciousActivityScore;
+    }
+
+    public void setSuspiciousActivityScore(int suspiciousActivityScore) {
+        this.suspiciousActivityScore = suspiciousActivityScore;
+    }
+
+    public int getConsecutiveAnomalies() {
+        return consecutiveAnomalies;
+    }
+
+    public void setConsecutiveAnomalies(int consecutiveAnomalies) {
+        this.consecutiveAnomalies = consecutiveAnomalies;
+    }
+
+    public String getDeviceProfile() {
+        return deviceProfile;
+    }
+
+    public void setDeviceProfile(String deviceProfile) {
+        this.deviceProfile = deviceProfile;
+    }
+
+    private String deviceProfile;
 
     // Getters and setters omitted here for brevity
     // (Include all your existing getter/setter methods)

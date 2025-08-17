@@ -8,15 +8,15 @@ import org.springframework.stereotype.Service;
 public class AuditSummaryService {
 
     private final QuarantineLogRepository quarantineLogRepository;
-    private final LocationNetworkChangeService locationNetworkChangeService;
+    private final LocationService locationService;
     private final FirmwareService firmwareService;
 
     public AuditSummaryService(
             QuarantineLogRepository quarantineLogRepository,
-            LocationNetworkChangeService locationNetworkChangeService,
+            LocationService locationNetworkChangeService,
             FirmwareService firmwareService) {
         this.quarantineLogRepository = quarantineLogRepository;
-        this.locationNetworkChangeService = locationNetworkChangeService;
+        this.locationService = locationNetworkChangeService;
         this.firmwareService = firmwareService;
     }
 
@@ -32,7 +32,7 @@ public class AuditSummaryService {
             summary.setTotalQuarantineActions(totalQuarantines);
 
             // Get total location/network changes
-            long totalLocationChanges = locationNetworkChangeService.getAllChanges().size();
+            long totalLocationChanges = locationService.getAllChanges().size();
             summary.setTotalLocationChanges(totalLocationChanges);
 
             // Get total firmware checks/logs
@@ -62,7 +62,7 @@ public class AuditSummaryService {
             long devicesWithQuarantines = quarantineLogRepository.countDistinctDeviceIds();
             
             // Get unique device IDs from location changes
-            long devicesWithLocationChanges = locationNetworkChangeService.getDeviceCountWithChanges();
+            long devicesWithLocationChanges = locationService.getDeviceCountWithChanges();
             
             // Note: This is a simple addition - in a real scenario, you might want to
             // use a more sophisticated approach to avoid double-counting devices
@@ -87,7 +87,7 @@ public class AuditSummaryService {
             summary.setTotalQuarantineActions(deviceQuarantines);
 
             // Get location changes for specific device
-            long deviceLocationChanges = locationNetworkChangeService.getChanges(deviceId).size();
+            long deviceLocationChanges = locationService.getChanges(deviceId).size();
             summary.setTotalLocationChanges(deviceLocationChanges);
 
             // Get firmware checks for specific device
