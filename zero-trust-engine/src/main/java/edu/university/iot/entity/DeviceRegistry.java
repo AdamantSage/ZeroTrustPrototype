@@ -18,6 +18,12 @@ public class DeviceRegistry {
     @Column(name = "certificate_required")
     private boolean certificateRequired;
 
+    @Column(name = "certificate_valid")
+    private boolean certificateValid = true; // Added missing field
+
+    @Column(name = "firmware_valid")
+    private boolean firmwareValid = true; // Added missing field
+
     // Firmware/Compliance
     @Column(name = "expected_firmware_version")
     private String expectedFirmwareVersion;
@@ -72,6 +78,21 @@ public class DeviceRegistry {
     }
     public void setCertificateRequired(boolean certificateRequired) {
         this.certificateRequired = certificateRequired;
+    }
+
+    // Added missing getters/setters
+    public boolean isCertificateValid() {
+        return certificateValid;
+    }
+    public void setCertificateValid(boolean certificateValid) {
+        this.certificateValid = certificateValid;
+    }
+
+    public boolean isFirmwareValid() {
+        return firmwareValid;
+    }
+    public void setFirmwareValid(boolean firmwareValid) {
+        this.firmwareValid = firmwareValid;
     }
 
     public String getExpectedFirmwareVersion() {

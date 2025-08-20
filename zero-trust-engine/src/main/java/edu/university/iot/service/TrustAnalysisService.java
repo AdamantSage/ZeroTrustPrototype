@@ -2,523 +2,447 @@ package edu.university.iot.service;
 
 import edu.university.iot.entity.DeviceRegistry;
 import edu.university.iot.model.dtoModel.TrustAnalysisDto;
-import edu.university.iot.model.dtoModel.TrustFactorDto;
-import edu.university.iot.model.dtoModel.TrustHistoryDto;
+import edu.university.iot.model.dtoModel.TrustChangeAnalysisDto;
 import edu.university.iot.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Enhanced service for detailed trust score analysis and drill-down capabilities
+ * Service for comprehensive trust analysis of devices.
+ * Provides detailed insights into trust factors and their impact.
  */
 @Service
 public class TrustAnalysisService {
 
+    private static final Logger logger = LoggerFactory.getLogger(TrustAnalysisService.class);
+
     private final DeviceRegistryRepository registryRepo;
-    private final IdentityLogRepository identityLogRepo;
-    private final LocationNetworkChangeRepository locationChangeRepo;
-    private final FirmwareLogRepository firmwareLogRepo;
-    private final AnomalyLogRepository anomalyLogRepo;
-    private final ComplianceLogRepository complianceLogRepo;
+    private final TrustScoreHistoryService trustHistoryService;
+    private final TrustScoreService trustScoreService;
+    private final LocationService locationService;
+    private final AnomalyLogRepository anomalyRepo;
+    private final ComplianceLogRepository complianceRepo;
+    private final FirmwareLogRepository firmwareRepo;
+    private final IdentityLogRepository identityRepo;
+
+    // Trust scoring weights (should match TrustScoreService)
+    private static final double TRUSTED_THRESHOLD = 70.0;
+    private static final Map<String, Double> FACTOR_WEIGHTS = Map.of(
+        "identity", 5.0,
+        "context", 2.0,
+        "firmware", 5.0,
+        "anomaly", 10.0,
+        "compliance", 10.0
+    );
 
     public TrustAnalysisService(
             DeviceRegistryRepository registryRepo,
-            IdentityLogRepository identityLogRepo,
-            LocationNetworkChangeRepository locationChangeRepo,
-            FirmwareLogRepository firmwareLogRepo,
-            AnomalyLogRepository anomalyLogRepo,
-            ComplianceLogRepository complianceLogRepo) {
+            TrustScoreHistoryService trustHistoryService,
+            TrustScoreService trustScoreService,
+            LocationService locationService,
+            AnomalyLogRepository anomalyRepo,
+            ComplianceLogRepository complianceRepo,
+            FirmwareLogRepository firmwareRepo,
+            IdentityLogRepository identityRepo) {
         
         this.registryRepo = registryRepo;
-        this.identityLogRepo = identityLogRepo;
-        this.locationChangeRepo = locationChangeRepo;
-        this.firmwareLogRepo = firmwareLogRepo;
-        this.anomalyLogRepo = anomalyLogRepo;
-        this.complianceLogRepo = complianceLogRepo;
+        this.trustHistoryService = trustHistoryService;
+        this.trustScoreService = trustScoreService;
+        this.locationService = locationService;
+        this.anomalyRepo = anomalyRepo;
+        this.complianceRepo = complianceRepo;
+        this.firmwareRepo = firmwareRepo;
+        this.identityRepo = identityRepo;
     }
 
     /**
-     * Get detailed trust score analysis with breakdown of contributing factors
+     * Get comprehensive trust analysis for a device
      */
     public TrustAnalysisDto getTrustAnalysis(String deviceId) {
-        DeviceRegistry device = registryRepo.findById(deviceId)
-            .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
-
         TrustAnalysisDto analysis = new TrustAnalysisDto();
         analysis.setDeviceId(deviceId);
-        analysis.setCurrentTrustScore(device.getTrustScore() != null ? device.getTrustScore() : 0.0);
-        analysis.setTrusted(device.isTrusted());
-        analysis.setQuarantined(device.isQuarantined());
-        
-        // Analyze each trust factor
-        List<TrustFactorDto> factors = analyzeTrustFactors(deviceId);
-        analysis.setTrustFactors(factors);
-        
-        // Calculate overall health metrics
-        analysis.setOverallHealth(calculateOverallHealth(factors));
-        analysis.setRiskLevel(determineRiskLevel(device.getTrustScore(), factors));
-        analysis.setRecommendations(generateRecommendations(factors));
-        
+
+        try {
+            DeviceRegistry device = registryRepo.findById(deviceId)
+                .orElseThrow(() -> new IllegalArgumentException("Device not found: " + deviceId));
+
+            // Basic trust information
+            double currentTrustScore = device.getTrustScore() != null ? device.getTrustScore() : 50.0;
+            analysis.setCurrentTrustScore(currentTrustScore);
+            analysis.setTrusted(device.isTrusted());
+            analysis.setTrustThreshold(TRUSTED_THRESHOLD);
+            analysis.setLastUpdated(Instant.now());
+
+            // Analyze trust factors
+            analyzeTrustFactors(deviceId, analysis);
+
+            // Historical context
+            analyzeHistoricalContext(deviceId, analysis);
+
+            // Risk assessment
+            performRiskAssessment(deviceId, analysis, currentTrustScore);
+
+            // Generate recommendations
+            generateRecommendations(deviceId, analysis);
+
+            // Performance metrics
+            calculatePerformanceMetrics(deviceId, analysis);
+
+        } catch (Exception e) {
+            logger.error("Error performing trust analysis for device [{}]: {}", deviceId, e.getMessage(), e);
+            analysis.setOverallRiskLevel("ERROR");
+            analysis.setRiskIndicators(List.of("Analysis failed: " + e.getMessage()));
+        }
+
         return analysis;
     }
 
-    /**
-     * Analyze individual trust factors contributing to the score
-     */
-    private List<TrustFactorDto> analyzeTrustFactors(String deviceId) {
-        List<TrustFactorDto> factors = new ArrayList<>();
-        
-        // Identity Factor
-        factors.add(analyzeIdentityFactor(deviceId));
-        
-        // Location/Context Factor
-        factors.add(analyzeLocationFactor(deviceId));
-        
-        // Firmware Factor
-        factors.add(analyzeFirmwareFactor(deviceId));
-        
-        // Anomaly Factor
-        factors.add(analyzeAnomalyFactor(deviceId));
-        
-        // Compliance Factor
-        factors.add(analyzeComplianceFactor(deviceId));
-        
-        return factors;
-    }
+    // === PRIVATE HELPER METHODS ===
 
-    private TrustFactorDto analyzeIdentityFactor(String deviceId) {
-        TrustFactorDto factor = new TrustFactorDto();
-        factor.setFactorName("Identity Verification");
-        factor.setCategory("SECURITY");
+    private void analyzeTrustFactors(String deviceId, TrustAnalysisDto analysis) {
+        Map<String, Object> trustFactors = new HashMap<>();
+        Map<String, String> factorStatuses = new HashMap<>();
         
         try {
-            // Get recent identity logs (last 24 hours)
-            LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
-            var recentLogs = identityLogRepo.findByDeviceId(deviceId).stream()
-                .filter(log -> log.getTimestamp().isAfter(yesterday.atZone(ZoneId.systemDefault()).toInstant()))
+            Instant cutoff = Instant.now().minusSeconds(24 * 3600); // 24 hours
+            
+            // Identity factor analysis
+            var identityLogs = identityRepo.findByDeviceId(deviceId).stream()
+                .filter(log -> log.getTimestamp().isAfter(cutoff))
                 .collect(Collectors.toList());
             
-            if (recentLogs.isEmpty()) {
-                factor.setScore(50.0);
-                factor.setStatus("UNKNOWN");
-                factor.setDescription("No recent identity verification data");
-                factor.setImpact("MEDIUM");
-                return factor;
-            }
-            
-            long totalChecks = recentLogs.size();
-            // Fixed: Use isIdentityVerified() instead of isVerified()
-            long successfulChecks = recentLogs.stream()
-                .mapToLong(log -> log.isIdentityVerified() ? 1L : 0L)
-                .sum();
-            
-            double successRate = (double) successfulChecks / totalChecks;
-            factor.setScore(successRate * 100);
-            
-            if (successRate >= 0.95) {
-                factor.setStatus("EXCELLENT");
-                factor.setImpact("POSITIVE");
-                factor.setDescription("Identity consistently verified");
-            } else if (successRate >= 0.8) {
-                factor.setStatus("GOOD");
-                factor.setImpact("NEUTRAL");
-                factor.setDescription("Most identity checks pass");
-            } else if (successRate >= 0.6) {
-                factor.setStatus("CONCERNING");
-                factor.setImpact("NEGATIVE");
-                factor.setDescription("Frequent identity verification failures");
+            Map<String, Object> identityAnalysis = new HashMap<>();
+            if (!identityLogs.isEmpty()) {
+                long totalChecks = identityLogs.size();
+                long failures = identityLogs.stream()
+                    .mapToLong(log -> log.isIdentityVerified() ? 0L : 1L)
+                    .sum();
+                double failureRate = (double) failures / totalChecks;
+                
+                identityAnalysis.put("totalChecks", totalChecks);
+                identityAnalysis.put("failures", failures);
+                identityAnalysis.put("failureRate", Math.round(failureRate * 1000.0) / 10.0); // percentage
+                identityAnalysis.put("lastCheck", identityLogs.get(0).getTimestamp());
+                
+                if (failureRate > 0.3) factorStatuses.put("identity", "HIGH_RISK");
+                else if (failureRate > 0.1) factorStatuses.put("identity", "MEDIUM_RISK");
+                else factorStatuses.put("identity", "LOW_RISK");
             } else {
-                factor.setStatus("CRITICAL");
-                factor.setImpact("CRITICAL");
-                factor.setDescription("Identity verification consistently failing");
+                factorStatuses.put("identity", "NO_DATA");
             }
+            trustFactors.put("identity", identityAnalysis);
             
-            factor.setLastUpdated(recentLogs.get(0).getTimestamp());
-            factor.setDataPoints((int) totalChecks);
+            // Location/Context factor analysis
+            var locationChanges = locationService.getLocationHistory(deviceId, 24);
+            Map<String, Object> contextAnalysis = new HashMap<>();
+            contextAnalysis.put("locationChanges", locationChanges.size());
+            contextAnalysis.put("locations", locationChanges);
             
-        } catch (Exception e) {
-            factor.setScore(0.0);
-            factor.setStatus("ERROR");
-            factor.setDescription("Error analyzing identity factor");
-            factor.setImpact("CRITICAL");
-        }
-        
-        return factor;
-    }
-
-    private TrustFactorDto analyzeLocationFactor(String deviceId) {
-        TrustFactorDto factor = new TrustFactorDto();
-        factor.setFactorName("Location Context");
-        factor.setCategory("BEHAVIORAL");
-        
-        try {
-            // Get recent location changes (last 24 hours)
-            LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
-            var recentChanges = locationChangeRepo.findByDeviceIdOrderByTimestampDesc(deviceId).stream()
-                .filter(change -> change.getTimestamp().isAfter(yesterday))
+            if (locationChanges.size() > 5) factorStatuses.put("context", "HIGH_RISK");
+            else if (locationChanges.size() > 2) factorStatuses.put("context", "MEDIUM_RISK");
+            else factorStatuses.put("context", "LOW_RISK");
+            trustFactors.put("context", contextAnalysis);
+            
+            // Anomaly factor analysis
+            var anomalyLogs = anomalyRepo.findByDeviceId(deviceId).stream()
+                .filter(log -> log.getTimestamp().isAfter(cutoff))
                 .collect(Collectors.toList());
             
-            int changeCount = recentChanges.size();
-            
-            if (changeCount == 0) {
-                factor.setScore(90.0);
-                factor.setStatus("STABLE");
-                factor.setImpact("POSITIVE");
-                factor.setDescription("No suspicious location changes");
-            } else if (changeCount <= 2) {
-                factor.setScore(75.0);
-                factor.setStatus("NORMAL");
-                factor.setImpact("NEUTRAL");
-                factor.setDescription("Normal location mobility");
-            } else if (changeCount <= 5) {
-                factor.setScore(40.0);
-                factor.setStatus("SUSPICIOUS");
-                factor.setImpact("NEGATIVE");
-                factor.setDescription("Frequent location changes detected");
+            Map<String, Object> anomalyAnalysis = new HashMap<>();
+            if (!anomalyLogs.isEmpty()) {
+                long totalChecks = anomalyLogs.size();
+                long anomalies = anomalyLogs.stream()
+                    .mapToLong(log -> log.isAnomalyDetected() ? 1L : 0L)
+                    .sum();
+                double anomalyRate = (double) anomalies / totalChecks;
+                
+                anomalyAnalysis.put("totalChecks", totalChecks);
+                anomalyAnalysis.put("anomaliesDetected", anomalies);
+                anomalyAnalysis.put("anomalyRate", Math.round(anomalyRate * 1000.0) / 10.0);
+                
+                if (anomalyRate > 0.3) factorStatuses.put("behavior", "HIGH_RISK");
+                else if (anomalyRate > 0.1) factorStatuses.put("behavior", "MEDIUM_RISK");
+                else factorStatuses.put("behavior", "LOW_RISK");
             } else {
-                factor.setScore(10.0);
-                factor.setStatus("CRITICAL");
-                factor.setImpact("CRITICAL");
-                factor.setDescription("Abnormally high location mobility");
+                factorStatuses.put("behavior", "NO_DATA");
             }
+            trustFactors.put("behavior", anomalyAnalysis);
             
-            factor.setDataPoints(changeCount);
-            if (!recentChanges.isEmpty()) {
-                factor.setLastUpdated(recentChanges.get(0).getTimestamp()
-                    .atZone(ZoneId.systemDefault()).toInstant());
-            }
-            
-            // Add specific location patterns
-            Map<String, Object> details = new HashMap<>();
-            details.put("recentLocationChanges", changeCount);
-            details.put("offCampusActivity", recentChanges.stream()
-                .anyMatch(change -> change.getNewLocation().contains("Off-Campus")));
-            factor.setDetails(details);
-            
-        } catch (Exception e) {
-            factor.setScore(0.0);
-            factor.setStatus("ERROR");
-            factor.setDescription("Error analyzing location factor");
-            factor.setImpact("CRITICAL");
-        }
-        
-        return factor;
-    }
-
-    private TrustFactorDto analyzeFirmwareFactor(String deviceId) {
-        TrustFactorDto factor = new TrustFactorDto();
-        factor.setFactorName("Firmware Compliance");
-        factor.setCategory("COMPLIANCE");
-        
-        try {
-            // Get the most recent firmware log
-            var recentLog = firmwareLogRepo.findTopByDeviceIdOrderByTimestampDesc(deviceId);
-            
-            if (recentLog.isEmpty()) {
-                factor.setScore(50.0);
-                factor.setStatus("UNKNOWN");
-                factor.setDescription("No firmware validation data");
-                factor.setImpact("MEDIUM");
-                return factor;
-            }
-            
-            var log = recentLog.get();
-            boolean isValid = log.isFirmwareValid();
-            
-            if (isValid) {
-                factor.setScore(95.0);
-                factor.setStatus("COMPLIANT");
-                factor.setImpact("POSITIVE");
-                factor.setDescription("Firmware version is compliant");
-            } else {
-                factor.setScore(20.0);
-                factor.setStatus("NON_COMPLIANT");
-                factor.setImpact("NEGATIVE");
-                factor.setDescription("Firmware version does not meet requirements");
-            }
-            
-            factor.setLastUpdated(log.getTimestamp().atZone(ZoneId.systemDefault()).toInstant());
-            factor.setDataPoints(1);
-            
-            Map<String, Object> details = new HashMap<>();
-            details.put("currentVersion", log.getFirmwareVersion());
-            details.put("patchStatus", log.getReportedPatchStatus());
-            factor.setDetails(details);
-            
-        } catch (Exception e) {
-            factor.setScore(0.0);
-            factor.setStatus("ERROR");
-            factor.setDescription("Error analyzing firmware factor");
-            factor.setImpact("CRITICAL");
-        }
-        
-        return factor;
-    }
-
-    private TrustFactorDto analyzeAnomalyFactor(String deviceId) {
-        TrustFactorDto factor = new TrustFactorDto();
-        factor.setFactorName("Anomaly Detection");
-        factor.setCategory("SECURITY");
-        
-        try {
-            // Get recent anomaly logs (last 24 hours)
-            var recentLogs = anomalyLogRepo.findByDeviceId(deviceId).stream()
-                .filter(log -> log.getTimestamp().isAfter(
-                    Instant.now().minusSeconds(24 * 3600)))
+            // Compliance factor analysis
+            var complianceLogs = complianceRepo.findByDeviceId(deviceId).stream()
+                .filter(log -> log.getTimestamp().isAfter(cutoff))
                 .collect(Collectors.toList());
             
-            if (recentLogs.isEmpty()) {
-                factor.setScore(85.0);
-                factor.setStatus("NORMAL");
-                factor.setDescription("No recent anomaly data");
-                factor.setImpact("NEUTRAL");
-                return factor;
-            }
-            
-            long totalLogs = recentLogs.size();
-            long anomaliesDetected = recentLogs.stream()
-                .mapToLong(log -> log.isAnomalyDetected() ? 1L : 0L)
-                .sum();
-            
-            double anomalyRate = (double) anomaliesDetected / totalLogs;
-            
-            if (anomalyRate == 0.0) {
-                factor.setScore(95.0);
-                factor.setStatus("CLEAN");
-                factor.setImpact("POSITIVE");
-                factor.setDescription("No anomalies detected");
-            } else if (anomalyRate <= 0.1) {
-                factor.setScore(75.0);
-                factor.setStatus("LOW_RISK");
-                factor.setImpact("NEUTRAL");
-                factor.setDescription("Minimal anomalous behavior");
-            } else if (anomalyRate <= 0.3) {
-                factor.setScore(40.0);
-                factor.setStatus("MODERATE_RISK");
-                factor.setImpact("NEGATIVE");
-                factor.setDescription("Concerning anomaly patterns");
+            Map<String, Object> complianceAnalysis = new HashMap<>();
+            if (!complianceLogs.isEmpty()) {
+                long totalChecks = complianceLogs.size();
+                long violations = complianceLogs.stream()
+                    .mapToLong(log -> log.isCompliant() ? 0L : 1L)
+                    .sum();
+                double violationRate = (double) violations / totalChecks;
+                
+                complianceAnalysis.put("totalChecks", totalChecks);
+                complianceAnalysis.put("violations", violations);
+                complianceAnalysis.put("violationRate", Math.round(violationRate * 1000.0) / 10.0);
+                
+                if (violationRate > 0.3) factorStatuses.put("compliance", "HIGH_RISK");
+                else if (violationRate > 0.1) factorStatuses.put("compliance", "MEDIUM_RISK");
+                else factorStatuses.put("compliance", "LOW_RISK");
             } else {
-                factor.setScore(15.0);
-                factor.setStatus("HIGH_RISK");
-                factor.setImpact("CRITICAL");
-                factor.setDescription("Frequent anomalous behavior detected");
+                factorStatuses.put("compliance", "NO_DATA");
             }
+            trustFactors.put("compliance", complianceAnalysis);
             
-            factor.setDataPoints((int) totalLogs);
-            factor.setLastUpdated(recentLogs.get(0).getTimestamp());
+            // Firmware factor analysis
+            var firmwareLog = firmwareRepo.findTopByDeviceIdOrderByTimestampDesc(deviceId);
+            Map<String, Object> firmwareAnalysis = new HashMap<>();
+            if (firmwareLog.isPresent()) {
+                var fw = firmwareLog.get();
+                firmwareAnalysis.put("version", fw.getFirmwareVersion());
+                firmwareAnalysis.put("isValid", fw.isFirmwareValid());
+                firmwareAnalysis.put("lastCheck", fw.getTimestamp());
+                
+                factorStatuses.put("firmware", fw.isFirmwareValid() ? "LOW_RISK" : "HIGH_RISK");
+            } else {
+                factorStatuses.put("firmware", "NO_DATA");
+            }
+            trustFactors.put("firmware", firmwareAnalysis);
             
-            Map<String, Object> details = new HashMap<>();
-            details.put("anomalyCount", anomaliesDetected);
-            details.put("anomalyRate", String.format("%.1f%%", anomalyRate * 100));
-            factor.setDetails(details);
+            analysis.setTrustFactors(trustFactors);
+            analysis.setFactorStatuses(factorStatuses);
+            analysis.setFactorWeights(FACTOR_WEIGHTS);
             
         } catch (Exception e) {
-            factor.setScore(0.0);
-            factor.setStatus("ERROR");
-            factor.setDescription("Error analyzing anomaly factor");
-            factor.setImpact("CRITICAL");
+            logger.error("Error analyzing trust factors for device [{}]: {}", deviceId, e.getMessage());
         }
-        
-        return factor;
     }
 
-    private TrustFactorDto analyzeComplianceFactor(String deviceId) {
-        TrustFactorDto factor = new TrustFactorDto();
-        factor.setFactorName("Policy Compliance");
-        factor.setCategory("COMPLIANCE");
+    private void analyzeHistoricalContext(String deviceId, TrustAnalysisDto analysis) {
+        try {
+            // Get historical averages
+            var timeline7d = trustHistoryService.getTrustScoreTimeline(deviceId, 7);
+            var timeline30d = trustHistoryService.getTrustScoreTimeline(deviceId, 30);
+            
+            if (!timeline7d.isEmpty()) {
+                double avg7d = timeline7d.stream()
+                    .mapToDouble(t -> t.getTrustScore())
+                    .average()
+                    .orElse(analysis.getCurrentTrustScore());
+                analysis.setAverageTrustScore7Days(Math.round(avg7d * 100.0) / 100.0);
+            }
+            
+            if (!timeline30d.isEmpty()) {
+                double avg30d = timeline30d.stream()
+                    .mapToDouble(t -> t.getTrustScore())
+                    .average()
+                    .orElse(analysis.getCurrentTrustScore());
+                analysis.setAverageTrustScore30Days(Math.round(avg30d * 100.0) / 100.0);
+            }
+            
+            // Get trend analysis
+            TrustChangeAnalysisDto changeAnalysis = trustHistoryService.analyzeTrustChanges(deviceId, 24);
+            analysis.setTrendDirection(changeAnalysis.getTrend());
+            analysis.setTrustScoreChanges24h(changeAnalysis.getTotalChanges());
+            
+        } catch (Exception e) {
+            logger.error("Error analyzing historical context for device [{}]: {}", deviceId, e.getMessage());
+        }
+    }
+
+    private void performRiskAssessment(String deviceId, TrustAnalysisDto analysis, double currentTrustScore) {
+        List<String> riskIndicators = new ArrayList<>();
+        List<String> positiveIndicators = new ArrayList<>();
         
         try {
-            // Get recent compliance logs (last 24 hours)
-            var recentLogs = complianceLogRepo.findByDeviceId(deviceId).stream()
-                .filter(log -> log.getTimestamp().isAfter(
-                    Instant.now().minusSeconds(24 * 3600)))
-                .collect(Collectors.toList());
-            
-            if (recentLogs.isEmpty()) {
-                factor.setScore(50.0);
-                factor.setStatus("UNKNOWN");
-                factor.setDescription("No recent compliance data");
-                factor.setImpact("MEDIUM");
-                return factor;
-            }
-            
-            long totalChecks = recentLogs.size();
-            long compliantChecks = recentLogs.stream()
-                .mapToLong(log -> log.isCompliant() ? 1L : 0L)
-                .sum();
-            
-            double complianceRate = (double) compliantChecks / totalChecks;
-            
-            if (complianceRate >= 0.95) {
-                factor.setScore(95.0);
-                factor.setStatus("FULLY_COMPLIANT");
-                factor.setImpact("POSITIVE");
-                factor.setDescription("Excellent policy compliance");
-            } else if (complianceRate >= 0.8) {
-                factor.setScore(80.0);
-                factor.setStatus("MOSTLY_COMPLIANT");
-                factor.setImpact("NEUTRAL");
-                factor.setDescription("Good compliance with minor issues");
-            } else if (complianceRate >= 0.6) {
-                factor.setScore(50.0);
-                factor.setStatus("PARTIALLY_COMPLIANT");
-                factor.setImpact("NEGATIVE");
-                factor.setDescription("Significant compliance violations");
+            // Assess current trust level
+            String riskLevel;
+            if (currentTrustScore < 30) {
+                riskLevel = "CRITICAL";
+                riskIndicators.add("Trust score critically low");
+            } else if (currentTrustScore < 50) {
+                riskLevel = "HIGH";
+                riskIndicators.add("Trust score below acceptable threshold");
+            } else if (currentTrustScore < 70) {
+                riskLevel = "MEDIUM";
+                riskIndicators.add("Trust score needs improvement");
             } else {
-                factor.setScore(20.0);
-                factor.setStatus("NON_COMPLIANT");
-                factor.setImpact("CRITICAL");
-                factor.setDescription("Major policy violations detected");
+                riskLevel = "LOW";
+                positiveIndicators.add("Trust score within acceptable range");
             }
             
-            factor.setDataPoints((int) totalChecks);
-            factor.setLastUpdated(recentLogs.get(0).getTimestamp());
+            // Check factor statuses
+            Map<String, String> factorStatuses = analysis.getFactorStatuses();
+            for (Map.Entry<String, String> entry : factorStatuses.entrySet()) {
+                String factor = entry.getKey();
+                String status = entry.getValue();
+                
+                switch (status) {
+                    case "HIGH_RISK":
+                        riskIndicators.add(formatFactorRisk(factor) + " - high risk detected");
+                        break;
+                    case "MEDIUM_RISK":
+                        riskIndicators.add(formatFactorRisk(factor) + " - moderate concerns");
+                        break;
+                    case "LOW_RISK":
+                        positiveIndicators.add(formatFactorRisk(factor) + " - performing well");
+                        break;
+                }
+            }
             
-            Map<String, Object> details = new HashMap<>();
-            details.put("complianceRate", String.format("%.1f%%", complianceRate * 100));
-            details.put("violationCount", totalChecks - compliantChecks);
-            factor.setDetails(details);
+            // Check trend
+            if ("DEGRADING".equals(analysis.getTrendDirection())) {
+                riskIndicators.add("Trust score trending downward");
+                if ("LOW".equals(riskLevel)) riskLevel = "MEDIUM"; // Upgrade risk
+            } else if ("IMPROVING".equals(analysis.getTrendDirection())) {
+                positiveIndicators.add("Trust score trending upward");
+            }
+            
+            analysis.setOverallRiskLevel(riskLevel);
+            analysis.setRiskIndicators(riskIndicators);
+            analysis.setPositiveIndicators(positiveIndicators);
             
         } catch (Exception e) {
-            factor.setScore(0.0);
-            factor.setStatus("ERROR");
-            factor.setDescription("Error analyzing compliance factor");
-            factor.setImpact("CRITICAL");
-        }
-        
-        return factor;
-    }
-
-    /**
-     * Calculate overall device health based on trust factors
-     */
-    private String calculateOverallHealth(List<TrustFactorDto> factors) {
-        double avgScore = factors.stream()
-            .mapToDouble(TrustFactorDto::getScore)
-            .average()
-            .orElse(0.0);
-        
-        long criticalIssues = factors.stream()
-            .mapToLong(f -> "CRITICAL".equals(f.getImpact()) ? 1L : 0L)
-            .sum();
-        
-        if (criticalIssues > 0) {
-            return "CRITICAL";
-        } else if (avgScore >= 80) {
-            return "EXCELLENT";
-        } else if (avgScore >= 60) {
-            return "GOOD";
-        } else if (avgScore >= 40) {
-            return "CONCERNING";
-        } else {
-            return "POOR";
+            logger.error("Error performing risk assessment for device [{}]: {}", deviceId, e.getMessage());
         }
     }
 
-    /**
-     * Determine risk level based on trust score and factors
-     */
-    private String determineRiskLevel(Double trustScore, List<TrustFactorDto> factors) {
-        if (trustScore == null) trustScore = 0.0;
-        
-        long criticalFactors = factors.stream()
-            .mapToLong(f -> "CRITICAL".equals(f.getImpact()) ? 1L : 0L)
-            .sum();
-        
-        if (criticalFactors > 2 || trustScore < 30) {
-            return "CRITICAL";
-        } else if (criticalFactors > 0 || trustScore < 50) {
-            return "HIGH";
-        } else if (trustScore < 70) {
-            return "MEDIUM";
-        } else {
-            return "LOW";
-        }
-    }
-
-    /**
-     * Generate actionable recommendations based on trust analysis
-     */
-    private List<String> generateRecommendations(List<TrustFactorDto> factors) {
+    private void generateRecommendations(String deviceId, TrustAnalysisDto analysis) {
         List<String> recommendations = new ArrayList<>();
         
-        for (TrustFactorDto factor : factors) {
-            switch (factor.getStatus()) {
+        try {
+            // Risk level based recommendations
+            switch (analysis.getOverallRiskLevel()) {
                 case "CRITICAL":
-                case "NON_COMPLIANT":
-                    if ("Identity Verification".equals(factor.getFactorName())) {
-                        recommendations.add("Immediate certificate renewal required");
-                        recommendations.add("Verify device physical security");
-                    } else if ("Location Context".equals(factor.getFactorName())) {
-                        recommendations.add("Investigate suspicious location patterns");
-                        recommendations.add("Consider temporary access restrictions");
-                    } else if ("Firmware Compliance".equals(factor.getFactorName())) {
-                        recommendations.add("Force firmware update immediately");
-                        recommendations.add("Check for unauthorized modifications");
-                    } else if ("Anomaly Detection".equals(factor.getFactorName())) {
-                        recommendations.add("Conduct full security scan");
-                        recommendations.add("Monitor network traffic closely");
-                    } else if ("Policy Compliance".equals(factor.getFactorName())) {
-                        recommendations.add("Review and enforce security policies");
-                        recommendations.add("Provide compliance training");
-                    }
+                    recommendations.add("URGENT: Consider quarantining device immediately");
+                    recommendations.add("Perform comprehensive security audit");
+                    recommendations.add("Review all device access permissions");
                     break;
-                case "SUSPICIOUS":
-                case "CONCERNING":
-                case "MODERATE_RISK":
-                    recommendations.add("Increase monitoring frequency for " + factor.getFactorName().toLowerCase());
-                    recommendations.add("Schedule security assessment");
+                    
+                case "HIGH":
+                    recommendations.add("Increase monitoring frequency");
+                    recommendations.add("Restrict device access to essential services");
+                    recommendations.add("Schedule security review within 24 hours");
+                    break;
+                    
+                case "MEDIUM":
+                    recommendations.add("Review and address identified risk factors");
+                    recommendations.add("Monitor closely for next 48 hours");
+                    recommendations.add("Verify firmware and security patches are current");
+                    break;
+                    
+                default:
+                    recommendations.add("Continue regular monitoring");
+                    recommendations.add("Maintain current security policies");
                     break;
             }
-        }
-        
-        if (recommendations.isEmpty()) {
-            recommendations.add("Device appears healthy - continue regular monitoring");
-        }
-        
-        return recommendations;
-    }
-
-    /**
-     * Get trust score history for trend analysis
-     */
-    public List<TrustHistoryDto> getTrustHistory(String deviceId, int days) {
-        // This would require a new TrustHistory table to track score changes over time
-        // For now, return a mock implementation
-        List<TrustHistoryDto> history = new ArrayList<>();
-        
-        DeviceRegistry device = registryRepo.findById(deviceId).orElse(null);
-        if (device != null) {
-            // Create sample history points (in real implementation, fetch from database)
-            LocalDateTime now = LocalDateTime.now();
-            for (int i = days; i >= 0; i--) {
-                TrustHistoryDto point = new TrustHistoryDto();
-                point.setTimestamp(now.minusDays(i).atZone(ZoneId.systemDefault()).toInstant());
-                point.setTrustScore(device.getTrustScore() != null ? device.getTrustScore() : 50.0);
-                point.setEventType("ROUTINE_CHECK");
-                history.add(point);
+            
+            // Factor-specific recommendations
+            Map<String, String> factorStatuses = analysis.getFactorStatuses();
+            if ("HIGH_RISK".equals(factorStatuses.get("identity"))) {
+                recommendations.add("Renew or reconfigure device certificates");
             }
+            if ("HIGH_RISK".equals(factorStatuses.get("context"))) {
+                recommendations.add("Investigate frequent location/network changes");
+            }
+            if ("HIGH_RISK".equals(factorStatuses.get("compliance"))) {
+                recommendations.add("Enforce compliance through policy updates");
+            }
+            if ("HIGH_RISK".equals(factorStatuses.get("firmware"))) {
+                recommendations.add("Update firmware to compliant version");
+            }
+            if ("HIGH_RISK".equals(factorStatuses.get("behavior"))) {
+                recommendations.add("Investigate root cause of anomalous behavior");
+            }
+            
+            analysis.setActionableRecommendations(recommendations);
+            
+            // Set next review date based on risk level
+            int hoursUntilReview = switch (analysis.getOverallRiskLevel()) {
+                case "CRITICAL" -> 4;
+                case "HIGH" -> 12;
+                case "MEDIUM" -> 48;
+                default -> 168; // 1 week
+            };
+            
+            analysis.setNextReviewDate(
+                LocalDateTime.now().plusHours(hoursUntilReview).toString()
+            );
+            
+        } catch (Exception e) {
+            logger.error("Error generating recommendations for device [{}]: {}", deviceId, e.getMessage());
+            recommendations.add("Error generating recommendations - manual review required");
         }
-        
-        return history;
     }
 
-    /**
-     * Get trust comparison across all devices
-     */
-    public Map<String, Double> getTrustComparison() {
-        return registryRepo.findAll().stream()
-            .collect(Collectors.toMap(
-                DeviceRegistry::getDeviceId,
-                device -> device.getTrustScore() != null ? device.getTrustScore() : 0.0
-            ));
+    private void calculatePerformanceMetrics(String deviceId, TrustAnalysisDto analysis) {
+        Map<String, Integer> complianceMetrics = new HashMap<>();
+        Map<String, Integer> reliabilityMetrics = new HashMap<>();
+        
+        try {
+            Instant cutoff = Instant.now().minusSeconds(7 * 24 * 3600); // 7 days
+            
+            // Compliance metrics
+            var complianceLogs = complianceRepo.findByDeviceId(deviceId).stream()
+                .filter(log -> log.getTimestamp().isAfter(cutoff))
+                .collect(Collectors.toList());
+            
+            if (!complianceLogs.isEmpty()) {
+                long compliantCount = complianceLogs.stream()
+                    .mapToLong(log -> log.isCompliant() ? 1L : 0L)
+                    .sum();
+                int complianceRate = (int) Math.round((double) compliantCount / complianceLogs.size() * 100);
+                complianceMetrics.put("policyCompliance", complianceRate);
+            }
+            
+            // Identity reliability
+            var identityLogs = identityRepo.findByDeviceId(deviceId).stream()
+                .filter(log -> log.getTimestamp().isAfter(cutoff))
+                .collect(Collectors.toList());
+            
+            if (!identityLogs.isEmpty()) {
+                long successCount = identityLogs.stream()
+                    .mapToLong(log -> log.isIdentityVerified() ? 1L : 0L)
+                    .sum();
+                int reliabilityRate = (int) Math.round((double) successCount / identityLogs.size() * 100);
+                reliabilityMetrics.put("identityReliability", reliabilityRate);
+            }
+            
+            // Behavioral stability
+            var anomalyLogs = anomalyRepo.findByDeviceId(deviceId).stream()
+                .filter(log -> log.getTimestamp().isAfter(cutoff))
+                .collect(Collectors.toList());
+            
+            if (!anomalyLogs.isEmpty()) {
+                long normalCount = anomalyLogs.stream()
+                    .mapToLong(log -> log.isAnomalyDetected() ? 0L : 1L)
+                    .sum();
+                int stabilityRate = (int) Math.round((double) normalCount / anomalyLogs.size() * 100);
+                reliabilityMetrics.put("behavioralStability", stabilityRate);
+            }
+            
+            analysis.setComplianceMetrics(complianceMetrics);
+            analysis.setReliabilityMetrics(reliabilityMetrics);
+            
+        } catch (Exception e) {
+            logger.error("Error calculating performance metrics for device [{}]: {}", deviceId, e.getMessage());
+        }
+    }
+
+    private String formatFactorRisk(String factor) {
+        return switch (factor) {
+            case "identity" -> "Identity verification";
+            case "context" -> "Location/network context";
+            case "behavior" -> "Behavioral analysis";
+            case "compliance" -> "Policy compliance";
+            case "firmware" -> "Firmware validation";
+            default -> factor;
+        };
     }
 }
