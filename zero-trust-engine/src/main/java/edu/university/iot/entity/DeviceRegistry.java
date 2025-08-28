@@ -11,18 +11,18 @@ public class DeviceRegistry {
     @Column(name = "device_id")
     private String deviceId;
 
-    // Identity Verification
+    // Identity Verification - Using Boolean wrapper types to handle null values
     @Column(name = "trusted")
-    private boolean trusted;
+    private Boolean trusted;
 
     @Column(name = "certificate_required")
-    private boolean certificateRequired;
+    private Boolean certificateRequired;
 
     @Column(name = "certificate_valid")
-    private boolean certificateValid = true; // Added missing field
+    private Boolean certificateValid = true;
 
     @Column(name = "firmware_valid")
-    private boolean firmwareValid = true; // Added missing field
+    private Boolean firmwareValid = true;
 
     // Firmware/Compliance
     @Column(name = "expected_firmware_version")
@@ -32,7 +32,7 @@ public class DeviceRegistry {
     private String expectedPatchStatus;
 
     @Column(name = "allow_outdated_patch")
-    private boolean allowOutdatedPatch;
+    private Boolean allowOutdatedPatch;
 
     // Anomaly Detection Thresholds (optional, can be null = use default)
     @Column(name = "max_cpu_usage")
@@ -49,8 +49,8 @@ public class DeviceRegistry {
     private Double trustScore;
 
     // Quarantine fields
-    @Column(name = "quarantined", nullable = false)
-    private boolean quarantined = false;
+    @Column(name = "quarantined")
+    private Boolean quarantined = false;
 
     @Column(name = "quarantine_reason")
     private String quarantineReason;
@@ -58,46 +58,79 @@ public class DeviceRegistry {
     @Column(name = "quarantine_timestamp")
     private LocalDateTime quarantineTimestamp;
 
+    // Default constructor
+    public DeviceRegistry() {}
+
+    // Constructor with device ID
+    public DeviceRegistry(String deviceId) {
+        this.deviceId = deviceId;
+    }
+
     // Getters and Setters
     public String getDeviceId() {
         return deviceId;
     }
+    
     public void setDeviceId(String deviceId) {
         this.deviceId = deviceId;
     }
 
-    public boolean isTrusted() {
+    public Boolean getTrusted() {
         return trusted;
     }
-    public void setTrusted(boolean trusted) {
+    
+    public void setTrusted(Boolean trusted) {
         this.trusted = trusted;
     }
 
-    public boolean isCertificateRequired() {
+    // Convenience method for boolean check
+    public boolean isTrusted() {
+        return trusted != null && trusted;
+    }
+
+    public Boolean getCertificateRequired() {
         return certificateRequired;
     }
-    public void setCertificateRequired(boolean certificateRequired) {
+    
+    public void setCertificateRequired(Boolean certificateRequired) {
         this.certificateRequired = certificateRequired;
     }
 
-    // Added missing getters/setters
-    public boolean isCertificateValid() {
+    // Convenience method for boolean check
+    public boolean isCertificateRequired() {
+        return certificateRequired != null && certificateRequired;
+    }
+
+    public Boolean getCertificateValid() {
         return certificateValid;
     }
-    public void setCertificateValid(boolean certificateValid) {
+    
+    public void setCertificateValid(Boolean certificateValid) {
         this.certificateValid = certificateValid;
     }
 
-    public boolean isFirmwareValid() {
+    // Convenience method for boolean check
+    public boolean isCertificateValid() {
+        return certificateValid != null ? certificateValid : true;
+    }
+
+    public Boolean getFirmwareValid() {
         return firmwareValid;
     }
-    public void setFirmwareValid(boolean firmwareValid) {
+    
+    public void setFirmwareValid(Boolean firmwareValid) {
         this.firmwareValid = firmwareValid;
+    }
+
+    // Convenience method for boolean check
+    public boolean isFirmwareValid() {
+        return firmwareValid != null ? firmwareValid : true;
     }
 
     public String getExpectedFirmwareVersion() {
         return expectedFirmwareVersion;
     }
+    
     public void setExpectedFirmwareVersion(String expectedFirmwareVersion) {
         this.expectedFirmwareVersion = expectedFirmwareVersion;
     }
@@ -105,20 +138,28 @@ public class DeviceRegistry {
     public String getExpectedPatchStatus() {
         return expectedPatchStatus;
     }
+    
     public void setExpectedPatchStatus(String expectedPatchStatus) {
         this.expectedPatchStatus = expectedPatchStatus;
     }
 
-    public boolean isAllowOutdatedPatch() {
+    public Boolean getAllowOutdatedPatch() {
         return allowOutdatedPatch;
     }
-    public void setAllowOutdatedPatch(boolean allowOutdatedPatch) {
+    
+    public void setAllowOutdatedPatch(Boolean allowOutdatedPatch) {
         this.allowOutdatedPatch = allowOutdatedPatch;
+    }
+
+    // Convenience method for boolean check
+    public boolean isAllowOutdatedPatch() {
+        return allowOutdatedPatch != null && allowOutdatedPatch;
     }
 
     public Double getMaxCpuUsage() {
         return maxCpuUsage;
     }
+    
     public void setMaxCpuUsage(Double maxCpuUsage) {
         this.maxCpuUsage = maxCpuUsage;
     }
@@ -126,6 +167,7 @@ public class DeviceRegistry {
     public Double getMaxMemoryUsage() {
         return maxMemoryUsage;
     }
+    
     public void setMaxMemoryUsage(Double maxMemoryUsage) {
         this.maxMemoryUsage = maxMemoryUsage;
     }
@@ -133,6 +175,7 @@ public class DeviceRegistry {
     public Double getMaxNetworkTraffic() {
         return maxNetworkTraffic;
     }
+    
     public void setMaxNetworkTraffic(Double maxNetworkTraffic) {
         this.maxNetworkTraffic = maxNetworkTraffic;
     }
@@ -140,20 +183,28 @@ public class DeviceRegistry {
     public Double getTrustScore() {
         return trustScore;
     }
+    
     public void setTrustScore(Double trustScore) {
         this.trustScore = trustScore;
     }
 
-    public boolean isQuarantined() {
+    public Boolean getQuarantined() {
         return quarantined;
     }
-    public void setQuarantined(boolean quarantined) {
+    
+    public void setQuarantined(Boolean quarantined) {
         this.quarantined = quarantined;
+    }
+
+    // Convenience method for boolean check
+    public boolean isQuarantined() {
+        return quarantined != null && quarantined;
     }
 
     public String getQuarantineReason() {
         return quarantineReason;
     }
+    
     public void setQuarantineReason(String quarantineReason) {
         this.quarantineReason = quarantineReason;
     }
@@ -161,7 +212,46 @@ public class DeviceRegistry {
     public LocalDateTime getQuarantineTimestamp() {
         return quarantineTimestamp;
     }
+    
     public void setQuarantineTimestamp(LocalDateTime quarantineTimestamp) {
         this.quarantineTimestamp = quarantineTimestamp;
+    }
+
+    // Utility methods for quarantine management
+    public void quarantine(String reason) {
+        this.quarantined = true;
+        this.quarantineReason = reason;
+        this.quarantineTimestamp = LocalDateTime.now();
+    }
+
+    public void removeFromQuarantine() {
+        this.quarantined = false;
+        this.quarantineReason = null;
+        this.quarantineTimestamp = null;
+    }
+
+    @Override
+    public String toString() {
+        return "DeviceRegistry{" +
+                "deviceId='" + deviceId + '\'' +
+                ", trusted=" + trusted +
+                ", certificateRequired=" + certificateRequired +
+                ", certificateValid=" + certificateValid +
+                ", firmwareValid=" + firmwareValid +
+                ", quarantined=" + quarantined +
+                '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        DeviceRegistry that = (DeviceRegistry) o;
+        return deviceId != null ? deviceId.equals(that.deviceId) : that.deviceId == null;
+    }
+
+    @Override
+    public int hashCode() {
+        return deviceId != null ? deviceId.hashCode() : 0;
     }
 }
