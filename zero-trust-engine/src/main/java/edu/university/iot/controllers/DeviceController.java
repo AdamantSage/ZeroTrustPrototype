@@ -8,6 +8,8 @@ import edu.university.iot.repository.DeviceMessageRepository;
 import edu.university.iot.service.DeviceRegistryService;
 import edu.university.iot.service.QuarantineService;
 import edu.university.iot.service.TrustScoreService;
+import edu.university.iot.service.TrustScoreHistoryService;
+import edu.university.iot.service.TrustAnalysisService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,15 +25,21 @@ public class DeviceController {
     private final QuarantineService        quarantineService;
     private final TrustScoreService        trustService;
     private final DeviceMessageRepository  messageRepo;
+    private final TrustScoreHistoryService trustScoreHistoryService;
+    private final TrustAnalysisService     trustAnalysisService;
 
     public DeviceController(DeviceRegistryService registryService,
                             QuarantineService quarantineService,
                             TrustScoreService trustService,
-                            DeviceMessageRepository messageRepo) {
-        this.registryService  = registryService;
-        this.quarantineService = quarantineService;
-        this.trustService      = trustService;
-        this.messageRepo       = messageRepo;
+                            DeviceMessageRepository messageRepo,
+                            TrustScoreHistoryService trustScoreHistoryService,
+                            TrustAnalysisService trustAnalysisService) {
+        this.registryService         = registryService;
+        this.quarantineService       = quarantineService;
+        this.trustService            = trustService;
+        this.messageRepo             = messageRepo;
+        this.trustScoreHistoryService = trustScoreHistoryService;
+        this.trustAnalysisService    = trustAnalysisService;
     }
 
     @GetMapping
@@ -83,5 +91,44 @@ public class DeviceController {
     @GetMapping("/{deviceId}/trust-score")
     public ResponseEntity<Double> getTrustScore(@PathVariable String deviceId) {
         return ResponseEntity.ok(trustService.getTrustScore(deviceId));
+    }
+
+    // Add the missing trust analysis endpoints that the frontend is calling
+    @GetMapping("/{deviceId}/trust-breakdown")
+    public ResponseEntity<?> getTrustBreakdown(@PathVariable String deviceId) {
+        return ResponseEntity.ok(trustService.getTrustScoreBreakdown(deviceId));
+    }
+
+    @PostMapping("/{deviceId}/reset-trust-score")
+    public ResponseEntity<?> resetTrustScore(@PathVariable String deviceId, 
+                                           @RequestParam(defaultValue = "50.0") double baselineScore) {
+        trustService.resetTrustScore(deviceId, baselineScore);
+        return ResponseEntity.ok().build();
+    }
+}
+
+// Add missing controller for analytics endpoints
+@RestController
+@RequestMapping("/api/analytics")
+class AnalyticsController {
+    
+    private final TrustAnalysisService trustAnalysisService;
+    private final TrustScoreHistoryService trustScoreHistoryService;
+    
+    public AnalyticsController(TrustAnalysisService trustAnalysisService,
+                              TrustScoreHistoryService trustScoreHistoryService) {
+        this.trustAnalysisService = trustAnalysisService;
+        this.trustScoreHistoryService = trustScoreHistoryService;
+    }
+    
+    @GetMapping("/trust-analysis/{deviceId}")
+    public ResponseEntity<?> getTrustAnalysis(@PathVariable String deviceId) {
+        return ResponseEntity.ok(trustAnalysisService.getTrustAnalysis(deviceId));
+    }
+    
+    @GetMapping("/trust-timeline/{deviceId}")
+    public ResponseEntity<?> getTrustTimeline(@PathVariable String deviceId, 
+                                            @RequestParam(defaultValue = "7") int days) {
+        return ResponseEntity.ok(trustScoreHistoryService.getTrustScoreTimeline(deviceId, days));
     }
 }

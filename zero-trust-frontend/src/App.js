@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import Dashboard from './pages/Dashboard';
 import AuditPage from './pages/AuditPage';
-import AnalyticsPage from './pages/AnalyticsPage';
+import DeviceRegistryPage from './pages/DeviceRegistryPage';
 
 function App() {
   return (
@@ -17,8 +17,8 @@ function App() {
           <Route path="/audit/location" element={<AuditPage />} />
           <Route path="/audit/quarantine" element={<AuditPage />} />
           <Route path="/audit/firmware" element={<AuditPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/analytics/device/:deviceId" element={<AnalyticsPage />} />
+          <Route path="/devices" element={<DeviceRegistryPage />} />
+
         </Routes>
       </Router>
     </div>

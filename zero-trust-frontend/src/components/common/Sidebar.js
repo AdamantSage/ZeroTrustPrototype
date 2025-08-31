@@ -42,20 +42,6 @@ export default function Sidebar({ isOpen, onToggle }) {
             Dashboard
           </Link>
 
-          {/* Analytics - New Addition */}
-          <Link
-            to="/analytics"
-            className={classNames(
-              'group flex items-center px-2 py-2 text-base font-medium rounded-md transition-colors mt-1',
-              location.pathname.startsWith('/analytics')
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            )}
-          >
-            <span className="mr-4 text-lg">🎯</span>
-            Analytics
-          </Link>
-
           {/* Audit & Analytics */}
           <div className="mt-1">
             <button
@@ -135,20 +121,6 @@ export default function Sidebar({ isOpen, onToggle }) {
           >
             <span className="mr-4 text-lg">📱</span>
             Device Registry
-          </Link>
-
-          {/* Settings */}
-          <Link
-            to="/settings"
-            className={classNames(
-              'group flex items-center px-2 py-2 text-base font-medium rounded-md transition-colors mt-1',
-              isActive('/settings')
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            )}
-          >
-            <span className="mr-4 text-lg">⚙️</span>
-            Settings
           </Link>
         </nav>
 
