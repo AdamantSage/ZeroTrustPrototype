@@ -22,9 +22,12 @@ import {
   AlertCircle,
   Info
 } from 'lucide-react';
+import Sidebar from '../components/common/Sidebar';
+import Header from '../components/common/Header';
 import deviceRegistryService from '../services/deviceRegistryService';
 
 const DeviceRegistryPage = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [devices, setDevices] = useState([]);
   const [filteredDevices, setFilteredDevices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +41,8 @@ const DeviceRegistryPage = () => {
   const [trustAnalysis, setTrustAnalysis] = useState(null);
   const [trustTimeline, setTrustTimeline] = useState([]);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
+
+  const toggleSidebar = () => setSidebarOpen(prev => !prev);
 
   useEffect(() => {
     loadDevices();
@@ -697,118 +702,138 @@ const DeviceRegistryPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div className="flex h-screen w-screen overflow-hidden bg-gray-100 text-gray-800">
+      {/* Sidebar */}
+      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+
+      {/* Main content wrapper */}
+      <div className="flex flex-col flex-1 w-full transition-all duration-300 lg:ml-64">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Device Registry</h1>
-          <p className="mt-2 text-gray-600">
-            Comprehensive view of all registered devices with advanced trust score analysis
-          </p>
-        </div>
+        <Header onMenuToggle={toggleSidebar} />
 
-        {/* Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search devices by ID, type, or location..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+        {/* Main section */}
+        <main className="flex-1 w-full max-w-full p-6 overflow-y-auto">
+          {/* Page Header */}
+          <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">📱 Device Registry</h1>
+              <p className="text-gray-600">Comprehensive view of all registered devices with advanced trust score analysis</p>
+            </div>
+            <div className="mt-4 lg:mt-0">
+              <button
+                onClick={loadDevices}
+                disabled={loading}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>{loading ? 'Loading...' : 'Refresh'}</span>
+              </button>
             </div>
           </div>
 
-          <div className="flex space-x-2">
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
-              value={filterBy}
-              onChange={(e) => setFilterBy(e.target.value)}
-            >
-              <option value="all">All Devices</option>
-              <option value="trusted">Trusted</option>
-              <option value="untrusted">Untrusted</option>
-              <option value="quarantined">Quarantined</option>
-              <option value="critical">Critical Risk</option>
-              <option value="high-risk">High Risk</option>
-            </select>
-
-            <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
-              value={`${sortBy}-${sortOrder}`}
-              onChange={(e) => {
-                const [field, order] = e.target.value.split('-');
-                setSortBy(field);
-                setSortOrder(order);
-              }}
-            >
-              <option value="trustScore-desc">Trust Score (High to Low)</option>
-              <option value="trustScore-asc">Trust Score (Low to High)</option>
-              <option value="deviceId-asc">Device ID (A-Z)</option>
-              <option value="deviceId-desc">Device ID (Z-A)</option>
-              <option value="lastSeen-desc">Last Seen (Recent)</option>
-            </select>
-
-            <button
-              onClick={loadDevices}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-sm"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Summary */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-gray-900">{filteredDevices.length}</div>
-            <div className="text-sm text-gray-600 font-medium">Total Devices</div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-green-600">
-              {filteredDevices.filter(d => d.trusted).length}
+          {/* Controls */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search devices by ID, type, or location..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="text-sm text-gray-600 font-medium">Trusted</div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-red-600">
-              {filteredDevices.filter(d => d.quarantined).length}
-            </div>
-            <div className="text-sm text-gray-600 font-medium">Quarantined</div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="text-3xl font-bold text-orange-600">
-              {filteredDevices.filter(d => (d.trustScore || 0) < 50).length}
-            </div>
-            <div className="text-sm text-gray-600 font-medium">High Risk</div>
-          </div>
-        </div>
 
-        {/* Device List */}
-        <div className="space-y-4">
-          {loading ? (
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600 font-medium">Loading devices...</p>
-            </div>
-          ) : filteredDevices.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 font-medium text-lg">No devices found matching your criteria</p>
-              <p className="text-gray-500 text-sm mt-2">Try adjusting your search terms or filters</p>
-            </div>
-          ) : (
-            filteredDevices.map(renderDeviceRow)
-          )}
-        </div>
+            <div className="flex space-x-2">
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
+                value={filterBy}
+                onChange={(e) => setFilterBy(e.target.value)}
+              >
+                <option value="all">All Devices</option>
+                <option value="trusted">Trusted</option>
+                <option value="untrusted">Untrusted</option>
+                <option value="quarantined">Quarantined</option>
+                <option value="critical">Critical Risk</option>
+                <option value="high-risk">High Risk</option>
+              </select>
 
-        {/* Trust Analysis Modal */}
-        {renderTrustAnalysis()}
+              <select
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm"
+                value={`${sortBy}-${sortOrder}`}
+                onChange={(e) => {
+                  const [field, order] = e.target.value.split('-');
+                  setSortBy(field);
+                  setSortOrder(order);
+                }}
+              >
+                <option value="trustScore-desc">Trust Score (High to Low)</option>
+                <option value="trustScore-asc">Trust Score (Low to High)</option>
+                <option value="deviceId-asc">Device ID (A-Z)</option>
+                <option value="deviceId-desc">Device ID (Z-A)</option>
+                <option value="lastSeen-desc">Last Seen (Recent)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Stats Summary */}
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-3xl font-bold text-gray-900">{filteredDevices.length}</div>
+              <div className="text-sm text-gray-600 font-medium">Total Devices</div>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-3xl font-bold text-green-600">
+                {filteredDevices.filter(d => d.trusted).length}
+              </div>
+              <div className="text-sm text-gray-600 font-medium">Trusted</div>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-3xl font-bold text-red-600">
+                {filteredDevices.filter(d => d.quarantined).length}
+              </div>
+              <div className="text-sm text-gray-600 font-medium">Quarantined</div>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <div className="text-3xl font-bold text-orange-600">
+                {filteredDevices.filter(d => (d.trustScore || 0) < 50).length}
+              </div>
+              <div className="text-sm text-gray-600 font-medium">High Risk</div>
+            </div>
+          </div>
+
+          {/* Device List */}
+          <div className="space-y-4">
+            {loading ? (
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 font-medium">Loading devices...</p>
+              </div>
+            ) : filteredDevices.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 font-medium text-lg">No devices found matching your criteria</p>
+                <p className="text-gray-500 text-sm mt-2">Try adjusting your search terms or filters</p>
+              </div>
+            ) : (
+              filteredDevices.map(renderDeviceRow)
+            )}
+          </div>
+
+          {/* Trust Analysis Modal */}
+          {renderTrustAnalysis()}
+        </main>
       </div>
+
+      {/* Mobile backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
     </div>
   );
 };
