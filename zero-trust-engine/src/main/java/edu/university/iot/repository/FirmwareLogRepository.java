@@ -7,8 +7,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import edu.university.iot.model.FirmwareLog;
 
 public interface FirmwareLogRepository extends JpaRepository<FirmwareLog, Long> {
-  List<FirmwareLog> findAllByOrderByTimestampDesc();
-  List<FirmwareLog> findByDeviceIdOrderByTimestampDesc(String deviceId);
-  Optional<FirmwareLog> findTopByDeviceIdOrderByTimestampDesc(String deviceId);
+    // Your existing methods...
+    List<FirmwareLog> findByDeviceIdOrderByTimestampDesc(String deviceId);
+    Optional<FirmwareLog> findTopByDeviceIdOrderByTimestampDesc(String deviceId);
+    
+    // Add this method for getting all firmware logs
+    List<FirmwareLog> findAllByOrderByTimestampDesc();
 }
 
