@@ -40,12 +40,12 @@ public class QuarantineService {
 
     /**
      * Quarantines a device by:
-     *  1) Disabling its identity in Azure IoT Hub
-     *  2) Marking it quarantined in the DeviceRegistry entity
-     *  3) Logging the quarantine attempt locally
+     * 1) Disabling its identity in Azure IoT Hub
+     * 2) Marking it quarantined in the DeviceRegistry entity
+     * 3) Logging the quarantine attempt locally
      *
      * @param deviceId the ID of the device to quarantine
-     * @param reason human-readable reason for quarantining
+     * @param reason   human-readable reason for quarantining
      */
     @Transactional
     public void quarantineDevice(String deviceId, String reason) {

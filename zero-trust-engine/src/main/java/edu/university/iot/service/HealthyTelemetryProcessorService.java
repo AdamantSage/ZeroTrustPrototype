@@ -28,10 +28,11 @@ public class HealthyTelemetryProcessorService {
     private final IdentityVerificationService identityService;
     private final FirmwareService firmwareService;
     private final ComplianceService complianceService;
+    private final AnomalyDetectorService anomalyService;
 
     // Enhanced rewards for healthy behavior
     private static final double HEALTHY_BEHAVIOR_BONUS = 3.0;
-    private static final double CONSECUTIVE_HEALTHY_MULTIPLIER = 0.1; // Additional bonus per streak
+    private static final double CONSECUTIVE_HEALTHY_MULTIPLIER = 0.1;
     private static final int STREAK_THRESHOLD_FOR_BONUS = 5;
 
     public HealthyTelemetryProcessorService(
@@ -42,7 +43,8 @@ public class HealthyTelemetryProcessorService {
             SessionManagementService sessionService,
             IdentityVerificationService identityService,
             FirmwareService firmwareService,
-            ComplianceService complianceService) {
+            ComplianceService complianceService,
+            AnomalyDetectorService anomalyService) {
 
         this.registryRepo = registryRepo;
         this.trustService = trustService;
@@ -52,10 +54,12 @@ public class HealthyTelemetryProcessorService {
         this.identityService = identityService;
         this.firmwareService = firmwareService;
         this.complianceService = complianceService;
+        this.anomalyService = anomalyService;
     }
 
     /**
      * Process healthy telemetry with enhanced trust score improvements
+     * AND persist to all relevant log tables
      */
     @Transactional
     public void processHealthyTelemetry(Map<String, Object> telemetry) {
@@ -80,20 +84,21 @@ public class HealthyTelemetryProcessorService {
             // Get pre-processing trust score
             double preTrustScore = device.getTrustScore() != null ? device.getTrustScore() : 50.0;
 
-            // 2) Process all validation checks (all should pass for healthy telemetry)
+            // 2) Process all validation checks - THIS PERSISTS TO LOG TABLES
             boolean contextUnchanged = locationService.validateContext(telemetry);
             boolean identityOk = identityService.verifyIdentity(telemetry);
             boolean firmwareOk = firmwareService.validateAndLogFirmware(telemetry);
-            complianceService.evaluateCompliance(telemetry); // Should be compliant
+            boolean complianceOk = complianceService.evaluateCompliance(telemetry);
+            boolean anomalyDetected = anomalyService.checkAnomaly(telemetry);
 
-            // 3) Apply standard trust adjustments (all positive)
+            // 3) Apply standard trust adjustments (all positive for healthy telemetry)
             trustService.adjustTrustWithContext(
                     deviceId,
-                    true, // identityPass
-                    true, // contextPass (or handle minor changes gracefully)
-                    true, // firmwareValid
-                    false, // anomalyDetected (no anomalies)
-                    true, // compliancePassed
+                    identityOk,
+                    contextUnchanged,
+                    firmwareOk,
+                    anomalyDetected,
+                    complianceOk,
                     telemetry);
 
             // 4) Apply healthy behavior bonus
@@ -217,7 +222,6 @@ public class HealthyTelemetryProcessorService {
      * Track healthy behavior metrics for analytics
      */
     private void trackHealthyBehaviorMetrics(String deviceId, Map<String, Object> telemetry) {
-        // This could be expanded to store in a dedicated HealthyBehaviorLog table
         Integer consecutiveHealthy = (Integer) telemetry.get("consecutiveHealthyReports");
 
         if (consecutiveHealthy != null && consecutiveHealthy % 50 == 0) {
@@ -272,9 +276,12 @@ public class HealthyTelemetryProcessorService {
      * Calculate trust score improvement over time period
      */
     private double calculateRecentImprovement(String deviceId, int hours) {
-        // This would query TrustScoreHistory to calculate the net improvement
-        // For now, return a placeholder
-        return 0.0;
+        try {
+            var analysis = trustHistoryService.analyzeTrustChanges(deviceId, hours);
+            return analysis.getNetScoreChange();
+        } catch (Exception e) {
+            return 0.0;
+        }
     }
 
     /**

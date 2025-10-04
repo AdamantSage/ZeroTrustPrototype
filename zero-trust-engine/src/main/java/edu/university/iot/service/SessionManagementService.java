@@ -22,7 +22,7 @@ public class SessionManagementService {
      */
     public String startOrRefreshSession(String deviceId) {
         DeviceSession session = sessionRepo.findByDeviceId(deviceId)
-            .orElseGet(() -> createNewSession(deviceId));
+                .orElseGet(() -> createNewSession(deviceId));
 
         session.setLastActivityTime(Instant.now());
         session.setStatus("ACTIVE");
@@ -63,6 +63,6 @@ public class SessionManagementService {
     }
 
     public Optional<DeviceSession> getSessionByDevice(String deviceId) {
-    return sessionRepo.findByDeviceId(deviceId);
-}
+        return sessionRepo.findByDeviceId(deviceId);
+    }
 }

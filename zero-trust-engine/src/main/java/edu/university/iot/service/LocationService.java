@@ -16,25 +16,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * Unified LocationService that handles all location and network change tracking.
- * 
- * This service consolidates the functionality of:
- * - LocationNetworkChangeService (basic change detection)
- * - LocationMonitoringService (enhanced monitoring and alerts)
- * 
- * Eliminates code duplication by providing a single service for all location-related operations.
+ * Unified LocationService - FIXED to handle CoordinateData entity
  */
 @Service
 public class LocationService {
 
     private static final Logger log = LoggerFactory.getLogger(LocationService.class);
-    
+
     private final LocationNetworkChangeRepository changeRepo;
-    
-    // Campus location definitions - could be moved to a separate configuration class
+
     private static final Map<String, LocationMapDto> CAMPUS_LOCATIONS = initializeCampusLocations();
-    
-    // Real-time tracking state
+
     private final Map<String, DeviceLocationDto> currentDeviceLocations = new ConcurrentHashMap<>();
     private final Map<String, LocationContext> lastKnownContext = new ConcurrentHashMap<>();
 
@@ -42,13 +34,8 @@ public class LocationService {
         this.changeRepo = changeRepo;
     }
 
-    // ========== CORE VALIDATION METHOD (from LocationNetworkChangeService) ==========
-
     /**
-     * Main validation method - checks if location/network context has changed.
-     * Returns true if unchanged, false if changed (and logs the change).
-     * 
-     * This method handles both basic change detection and enhanced monitoring.
+     * Main validation method - FIXED to handle both Map and CoordinateData entity
      */
     public boolean validateContext(Map<String, Object> telemetry) {
         if (telemetry == null) {
@@ -64,11 +51,29 @@ public class LocationService {
 
         String newLocation = safeToString(telemetry.get("location"));
         String newIpAddress = safeToString(telemetry.get("ipAddress"));
-        
-        // Extract coordinates
-        Map<String, Object> coordinates = (Map<String, Object>) telemetry.get("coordinates");
-        Double newLat = coordinates != null ? (Double) coordinates.get("lat") : null;
-        Double newLng = coordinates != null ? (Double) coordinates.get("lng") : null;
+
+        // Extract coordinates - handle both Map and CoordinateData entity
+        Double newLat = null;
+        Double newLng = null;
+        Object coordsObj = telemetry.get("coordinates");
+
+        if (coordsObj instanceof Map) {
+            // Standard Map case
+            Map<?, ?> coordinates = (Map<?, ?>) coordsObj;
+            newLat = safeParseDouble(coordinates.get("lat"));
+            newLng = safeParseDouble(coordinates.get("lng"));
+        } else if (coordsObj != null) {
+            // Handle CoordinateData entity via reflection
+            try {
+                java.lang.reflect.Method getLat = coordsObj.getClass().getMethod("getLat");
+                java.lang.reflect.Method getLng = coordsObj.getClass().getMethod("getLng");
+                newLat = (Double) getLat.invoke(coordsObj);
+                newLng = (Double) getLng.invoke(coordsObj);
+            } catch (Exception e) {
+                log.warn("Could not extract coordinates from object type: {}",
+                        coordsObj.getClass().getName());
+            }
+        }
 
         LocationContext previousContext = lastKnownContext.get(deviceId);
         boolean hasChanged = false;
@@ -77,8 +82,8 @@ public class LocationService {
         if (previousContext != null) {
             boolean locationChanged = !Objects.equals(previousContext.location, newLocation);
             boolean ipChanged = !Objects.equals(previousContext.ipAddress, newIpAddress);
-            boolean coordinatesChanged = !Objects.equals(previousContext.latitude, newLat) || 
-                                       !Objects.equals(previousContext.longitude, newLng);
+            boolean coordinatesChanged = !Objects.equals(previousContext.latitude, newLat) ||
+                    !Objects.equals(previousContext.longitude, newLng);
 
             if (locationChanged || ipChanged || coordinatesChanged) {
                 // Record the change
@@ -93,15 +98,15 @@ public class LocationService {
         // Update context and current location tracking
         updateDeviceContext(deviceId, newLocation, newIpAddress, newLat, newLng, telemetry);
 
-        return !hasChanged; // Return true if unchanged, false if changed
+        return !hasChanged;
     }
 
     // ========== DATA PERSISTENCE ==========
 
-    private void recordLocationChange(String deviceId, LocationContext previous, 
-                                    String newLocation, String newIpAddress, 
-                                    Double newLat, Double newLng, 
-                                    Map<String, Object> telemetry) {
+    private void recordLocationChange(String deviceId, LocationContext previous,
+            String newLocation, String newIpAddress,
+            Double newLat, Double newLng,
+            Map<String, Object> telemetry) {
         try {
             LocationNetworkChange change = new LocationNetworkChange();
             change.setDeviceId(deviceId);
@@ -110,7 +115,7 @@ public class LocationService {
             change.setOldIpAddress(previous.ipAddress);
             change.setNewIpAddress(newIpAddress);
             change.setTimestamp(LocalDateTime.now());
-            
+
             // Set coordinates
             if (previous.latitude != null && previous.longitude != null) {
                 change.setOldLatitude(previous.latitude);
@@ -122,7 +127,7 @@ public class LocationService {
             }
 
             changeRepo.save(change);
-            log.info("Recorded location change for device {}: {} -> {}", 
+            log.info("Recorded location change for device {}: {} -> {}",
                     deviceId, previous.location, newLocation);
 
         } catch (Exception e) {
@@ -130,8 +135,8 @@ public class LocationService {
         }
     }
 
-    private void updateDeviceContext(String deviceId, String location, String ipAddress, 
-                                   Double lat, Double lng, Map<String, Object> telemetry) {
+    private void updateDeviceContext(String deviceId, String location, String ipAddress,
+            Double lat, Double lng, Map<String, Object> telemetry) {
         // Update last known context
         lastKnownContext.put(deviceId, new LocationContext(location, ipAddress, lat, lng));
 
@@ -143,12 +148,12 @@ public class LocationService {
         deviceLocation.setLatitude(lat);
         deviceLocation.setLongitude(lng);
         deviceLocation.setLastUpdate(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant());
-        
+
         // Add telemetry scores
         deviceLocation.setTrustScore(safeParseDouble(telemetry.get("trustScore")));
         deviceLocation.setAnomalyScore(safeParseDouble(telemetry.get("anomalyScore")));
         deviceLocation.setSuspiciousActivityScore(safeParseInteger(telemetry.get("suspiciousActivityScore")));
-        
+
         // Determine location type and risk
         LocationMapDto locationInfo = CAMPUS_LOCATIONS.get(location);
         if (locationInfo != null) {
@@ -168,27 +173,25 @@ public class LocationService {
         try {
             LocationMapDto oldLoc = CAMPUS_LOCATIONS.get(oldLocation);
             LocationMapDto newLoc = CAMPUS_LOCATIONS.get(newLocation);
-            
+
             List<String> alertReasons = new ArrayList<>();
-            
-            // Check for suspicious patterns
+
             if (oldLoc != null && newLoc != null) {
                 if ("RESTRICTED".equals(oldLoc.getType()) && "EXTERNAL".equals(newLoc.getType())) {
                     alertReasons.add("Movement from restricted to external location");
                 }
             }
-            
-            // Check for frequent changes
+
             long recentChanges = getLocationHistory(deviceId, 1).size();
             if (recentChanges >= 3) {
                 alertReasons.add("Excessive location changes in short time");
             }
-            
+
             if (!alertReasons.isEmpty()) {
-                log.warn("LOCATION ALERT [{}]: {} -> {}. Reasons: {}", 
+                log.warn("LOCATION ALERT [{}]: {} -> {}. Reasons: {}",
                         deviceId, oldLocation, newLocation, String.join(", ", alertReasons));
             }
-            
+
         } catch (Exception e) {
             log.error("Error generating alerts for device {}: {}", deviceId, e.getMessage());
         }
@@ -196,23 +199,14 @@ public class LocationService {
 
     // ========== PUBLIC API METHODS ==========
 
-    /**
-     * Get location change history for a device
-     */
     public List<LocationNetworkChange> getChanges(String deviceId) {
         return changeRepo.findByDeviceIdOrderByTimestampDesc(deviceId);
     }
 
-    /**
-     * Get all location changes
-     */
     public List<LocationNetworkChange> getAllChanges() {
         return changeRepo.findAllByOrderByTimestampDesc();
     }
 
-    /**
-     * Get location history for a specific timeframe
-     */
     public List<LocationNetworkChange> getLocationHistory(String deviceId, int hours) {
         LocalDateTime cutoff = LocalDateTime.now().minusHours(hours);
         return changeRepo.findByDeviceIdOrderByTimestampDesc(deviceId).stream()
@@ -220,9 +214,6 @@ public class LocationService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get real-time location map data for monitoring dashboard
-     */
     public Map<String, Object> getLocationMapData() {
         Map<String, Object> mapData = new HashMap<>();
         mapData.put("campusLocations", CAMPUS_LOCATIONS.values());
@@ -232,46 +223,37 @@ public class LocationService {
         return mapData;
     }
 
-    /**
-     * Get location statistics for a device
-     */
     public Map<String, Object> getLocationStatistics(String deviceId) {
         Map<String, Object> stats = new HashMap<>();
-        
+
         try {
             List<LocationNetworkChange> recentChanges = getLocationHistory(deviceId, 24);
-            
+
             stats.put("totalChanges24h", recentChanges.size());
             stats.put("uniqueLocations24h", recentChanges.stream()
                     .map(LocationNetworkChange::getNewLocation)
                     .distinct().count());
-            
-            // Location type distribution
+
             Map<String, Long> typeDistribution = recentChanges.stream()
                     .collect(Collectors.groupingBy(
                             change -> getLocationTypeFor(change.getNewLocation()),
-                            Collectors.counting()
-                    ));
+                            Collectors.counting()));
             stats.put("locationTypeDistribution", typeDistribution);
-            
-            // Risk assessment
+
             long highRiskChanges = recentChanges.stream()
                     .mapToLong(change -> isHighRiskLocation(change.getNewLocation()) ? 1L : 0L)
                     .sum();
-            
+
             stats.put("highRiskChanges24h", highRiskChanges);
             stats.put("riskScore", calculateOverallRiskScore(recentChanges));
-            
+
         } catch (Exception e) {
             log.error("Error calculating statistics for device {}: {}", deviceId, e.getMessage());
         }
-        
+
         return stats;
     }
 
-    /**
-     * Get device count with changes
-     */
     public long getDeviceCountWithChanges() {
         try {
             return changeRepo.countDistinctDeviceIds();
@@ -285,29 +267,43 @@ public class LocationService {
 
     private static Map<String, LocationMapDto> initializeCampusLocations() {
         Map<String, LocationMapDto> locations = new HashMap<>();
-        locations.put("Library-Floor1", new LocationMapDto("Library-Floor1", "Library Floor 1", -26.6876, 27.0936, "ACADEMIC", "10.1.1.0/24"));
-        locations.put("Library-Floor2", new LocationMapDto("Library-Floor2", "Library Floor 2", -26.6877, 27.0937, "ACADEMIC", "10.1.2.0/24"));
-        locations.put("Lecture-Hall-A", new LocationMapDto("Lecture-Hall-A", "Lecture Hall A", -26.6880, 27.0940, "ACADEMIC", "10.1.3.0/24"));
-        locations.put("Lecture-Hall-B", new LocationMapDto("Lecture-Hall-B", "Lecture Hall B", -26.6882, 27.0942, "ACADEMIC", "10.1.4.0/24"));
-        locations.put("Computer-Lab-1", new LocationMapDto("Computer-Lab-1", "Computer Lab 1", -26.6875, 27.0935, "LAB", "10.1.5.0/24"));
-        locations.put("Computer-Lab-2", new LocationMapDto("Computer-Lab-2", "Computer Lab 2", -26.6873, 27.0933, "LAB", "10.1.6.0/24"));
-        locations.put("Student-Center", new LocationMapDto("Student-Center", "Student Center", -26.6878, 27.0938, "SOCIAL", "10.1.7.0/24"));
-        locations.put("Admin-Building", new LocationMapDto("Admin-Building", "Administration Building", -26.6885, 27.0945, "RESTRICTED", "10.1.8.0/24"));
-        locations.put("Cafeteria", new LocationMapDto("Cafeteria", "Cafeteria", -26.6879, 27.0939, "SOCIAL", "10.1.9.0/24"));
-        locations.put("Off-Campus-Home", new LocationMapDto("Off-Campus-Home", "Off-Campus Home", -26.7000, 27.1000, "EXTERNAL", "192.168.1.0/24"));
-        locations.put("Off-Campus-Cafe", new LocationMapDto("Off-Campus-Cafe", "Off-Campus Cafe", -26.6950, 27.0900, "EXTERNAL", "192.168.43.0/24"));
+        locations.put("Library-Floor1",
+                new LocationMapDto("Library-Floor1", "Library Floor 1", -26.6876, 27.0936, "ACADEMIC", "10.1.1.0/24"));
+        locations.put("Library-Floor2",
+                new LocationMapDto("Library-Floor2", "Library Floor 2", -26.6877, 27.0937, "ACADEMIC", "10.1.2.0/24"));
+        locations.put("Lecture-Hall-A",
+                new LocationMapDto("Lecture-Hall-A", "Lecture Hall A", -26.6880, 27.0940, "ACADEMIC", "10.1.3.0/24"));
+        locations.put("Lecture-Hall-B",
+                new LocationMapDto("Lecture-Hall-B", "Lecture Hall B", -26.6882, 27.0942, "ACADEMIC", "10.1.4.0/24"));
+        locations.put("Computer-Lab-1",
+                new LocationMapDto("Computer-Lab-1", "Computer Lab 1", -26.6875, 27.0935, "LAB", "10.1.5.0/24"));
+        locations.put("Computer-Lab-2",
+                new LocationMapDto("Computer-Lab-2", "Computer Lab 2", -26.6873, 27.0933, "LAB", "10.1.6.0/24"));
+        locations.put("Student-Center",
+                new LocationMapDto("Student-Center", "Student Center", -26.6878, 27.0938, "SOCIAL", "10.1.7.0/24"));
+        locations.put("Admin-Building", new LocationMapDto("Admin-Building", "Administration Building", -26.6885,
+                27.0945, "RESTRICTED", "10.1.8.0/24"));
+        locations.put("Cafeteria",
+                new LocationMapDto("Cafeteria", "Cafeteria", -26.6879, 27.0939, "SOCIAL", "10.1.9.0/24"));
+        locations.put("Off-Campus-Home", new LocationMapDto("Off-Campus-Home", "Off-Campus Home", -26.7000, 27.1000,
+                "EXTERNAL", "192.168.1.0/24"));
+        locations.put("Off-Campus-Cafe", new LocationMapDto("Off-Campus-Cafe", "Off-Campus Cafe", -26.6950, 27.0900,
+                "EXTERNAL", "192.168.43.0/24"));
         return locations;
     }
 
     private String calculateRiskLevel(String locationType, DeviceLocationDto deviceLocation) {
-        if ("EXTERNAL".equals(locationType)) return "HIGH";
+        if ("EXTERNAL".equals(locationType))
+            return "HIGH";
         if ("RESTRICTED".equals(locationType)) {
             Double trustScore = deviceLocation.getTrustScore();
             return (trustScore != null && trustScore < 80) ? "CRITICAL" : "MEDIUM";
         }
         Double anomalyScore = deviceLocation.getAnomalyScore();
-        if (anomalyScore != null && anomalyScore > 0.7) return "HIGH";
-        if (anomalyScore != null && anomalyScore > 0.4) return "MEDIUM";
+        if (anomalyScore != null && anomalyScore > 0.7)
+            return "HIGH";
+        if (anomalyScore != null && anomalyScore > 0.4)
+            return "MEDIUM";
         return "LOW";
     }
 
@@ -326,11 +322,11 @@ public class LocationService {
         alert.setOldLocation(change.getOldLocation());
         alert.setNewLocation(change.getNewLocation());
         alert.setTimestamp(change.getTimestamp().atZone(ZoneId.systemDefault()).toInstant());
-        
+
         boolean isHighRisk = isHighRiskLocation(change.getOldLocation()) || isHighRiskLocation(change.getNewLocation());
         alert.setSeverity(isHighRisk ? "HIGH" : "MEDIUM");
         alert.setReason(isHighRisk ? "Involves restricted/external location" : "Normal location change");
-        
+
         return alert;
     }
 
@@ -367,45 +363,58 @@ public class LocationService {
     }
 
     private double calculateOverallRiskScore(List<LocationNetworkChange> changes) {
-        if (changes.isEmpty()) return 0.0;
-        
-        double score = Math.min(changes.size() * 5, 30); // Frequency factor
-        
+        if (changes.isEmpty())
+            return 0.0;
+
+        double score = Math.min(changes.size() * 5, 30);
+
         long highRiskChanges = changes.stream()
                 .mapToLong(change -> isHighRiskLocation(change.getNewLocation()) ? 1L : 0L)
                 .sum();
-        
+
         score += highRiskChanges * 15;
-        
+
         return Math.min(score, 100.0);
     }
 
-    // Safe parsing utilities
     private static String safeToString(Object obj) {
         return obj != null ? String.valueOf(obj) : null;
     }
 
     private static Double safeParseDouble(Object obj) {
-        if (obj == null) return null;
-        if (obj instanceof Double) return (Double) obj;
+        if (obj == null)
+            return null;
+        if (obj instanceof Double)
+            return (Double) obj;
+        if (obj instanceof Integer)
+            return ((Integer) obj).doubleValue();
         if (obj instanceof String) {
-            try { return Double.parseDouble((String) obj); }
-            catch (NumberFormatException e) { return 0.0; }
+            try {
+                return Double.parseDouble((String) obj);
+            } catch (NumberFormatException e) {
+                return 0.0;
+            }
         }
         return 0.0;
     }
 
     private static Integer safeParseInteger(Object obj) {
-        if (obj == null) return null;
-        if (obj instanceof Integer) return (Integer) obj;
+        if (obj == null)
+            return null;
+        if (obj instanceof Integer)
+            return (Integer) obj;
+        if (obj instanceof Double)
+            return ((Double) obj).intValue();
         if (obj instanceof String) {
-            try { return Integer.parseInt((String) obj); }
-            catch (NumberFormatException e) { return 0; }
+            try {
+                return Integer.parseInt((String) obj);
+            } catch (NumberFormatException e) {
+                return 0;
+            }
         }
         return 0;
     }
 
-    // Internal context holder
     private static class LocationContext {
         final String location;
         final String ipAddress;
