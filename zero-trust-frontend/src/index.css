@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
+
+/* define your custom properties */
+:root {
+  --global-bg-1: #dbe5ebcc;
+  --global-bg-2: #ffffff;
+  --global-text-1: #000000;
+  --global-text-2: #0000007f;
+  --global-text-3: #1f384c;
+  --global-text-4: #273240;
+  --global-text-5: #273240b2;
+  --global-text-6: #31d06c;
+
+  --sidebar-bg-1: #f1f2f7;
+  --sidebar-text-1: #0824317f;
+
+  --header-bg-1: #eb5151;
+  --header-bg-2: #ffe6cc;
+
+  --searchview-bg-1: #f5f6fa;
+  --searchview-text-1: #1f384c4c;
+
+  --button-bg-1: #fafbfd;
+  --button-text-1: #5969cf;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

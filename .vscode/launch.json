@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-Application<zero-trust-engine>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "edu.university.iot.Application",
+            "projectName": "zero-trust-engine",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

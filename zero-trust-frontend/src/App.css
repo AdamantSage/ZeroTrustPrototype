@@ -1,0 +1,167 @@
+/* App.css */
+
+/* Reset some basics */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Root container: sidebar + main content */
+.App {
+  display: flex;
+  height: 100vh;
+  font-family: 'Segoe UI', Roboto, sans-serif;
+  color: #333;
+}
+
+/* Sidebar styling */
+.Sidebar {
+  width: 260px;
+  background: #2f3e46;
+  color: #edf2f4;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.Sidebar h1 {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.Sidebar p {
+  margin-bottom: 0.5rem;
+}
+
+.Sidebar nav button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.Sidebar nav button:hover {
+  background: #354f52;
+}
+
+.Sidebar .refresh-btn {
+  margin-top: auto;
+  background: #d00000;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.Sidebar .refresh-btn:hover {
+  background: #9d0000;
+}
+
+/* Main content area */
+main {
+  flex: 1;
+  background: #f7f7f7;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+/* DeviceList table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+th {
+  background: #cad2c5;
+  font-weight: 600;
+}
+
+tbody tr:hover {
+  background: #e8f1f2;
+}
+
+/* Buttons */
+button {
+  font-family: inherit;
+}
+
+button.primary {
+  background: #0077b6;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button.primary:hover {
+  background: #005f87;
+}
+
+button.danger {
+  background: #d00000;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button.danger:hover {
+  background: #9d0000;
+}
+
+/* Forms & Inputs */
+input[type="text"],
+input[type="number"],
+input[type="email"] {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 250px;
+  margin-left: 0.5rem;
+}
+
+/* DeviceDetails headings */
+.DeviceDetails h2 {
+  margin-bottom: 1rem;
+}
+
+.DeviceDetails .logs-section {
+  margin-top: 2rem;
+}
+
+.DeviceDetails .logs-section h4 {
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.DeviceDetails pre {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 1rem;
+  height: 180px;
+  overflow-y: auto;
+  font-family: Consolas, monospace;
+  font-size: 0.875rem;
+}

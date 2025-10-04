@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Your_pass@123
+    ports:
+      - "1433:1433"
+  ganache:
+    image: trufflesuite/ganache-cli:latest
+    command: ["--host", "0.0.0.0", "--port", "8545"]
+    ports:
+      - "8545:8545"

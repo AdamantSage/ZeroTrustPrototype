@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <title>Zero-Trust Dashboard</title>
+</head>
+<body>
+  <h1>Device Status Dashboard</h1>
+  <table>
+    <thead>
+      <tr><th>Device ID</th><th>Trust Score</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr th:each="device : ${devices}">
+        <td th:text="${device.id}">deviceId</td>
+        <td th:text="${device.trustScore}">0</td>
+        <td th:text="${device.status}">OK</td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>
