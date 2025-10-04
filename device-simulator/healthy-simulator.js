@@ -364,3 +364,5 @@ setTimeout(() => {
   console.log('📡 Generating optimal telemetry every 5 seconds');
   console.log('📈 Watch trust scores improve over time!\n');
 }, 1000);
+
+//preferred, check location
