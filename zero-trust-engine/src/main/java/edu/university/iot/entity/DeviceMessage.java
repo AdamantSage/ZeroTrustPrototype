@@ -1,11 +1,13 @@
 package edu.university.iot.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
 @Entity
+@JsonIgnoreProperties(ignoreUnknown = true) // This will ignore unknown fields during deserialization
 public class DeviceMessage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,15 +26,23 @@ public class DeviceMessage {
     private boolean malwareSignatureDetected;
     private int sessionDuration;
     private Instant timestamp;
+
     @Embedded
     private CoordinateData coordinates;
 
     private int suspiciousActivityScore;
     private int consecutiveAnomalies;
+    private String deviceProfile;
+
+    // New fields for healthy behavior tracking
+    private Boolean healthyBehaviorIndicator;
+    private Integer consecutiveHealthyReports;
+
+    // Existing getters and setters...
+
     public CoordinateData getCoordinates() {
         return coordinates;
     }
-
 
     public void setCoordinates(CoordinateData coordinates) {
         this.coordinates = coordinates;
@@ -62,10 +72,22 @@ public class DeviceMessage {
         this.deviceProfile = deviceProfile;
     }
 
-    private String deviceProfile;
+    // New getters and setters for healthy behavior fields
+    public Boolean getHealthyBehaviorIndicator() {
+        return healthyBehaviorIndicator;
+    }
 
-    // Getters and setters omitted here for brevity
-    // (Include all your existing getter/setter methods)
+    public void setHealthyBehaviorIndicator(Boolean healthyBehaviorIndicator) {
+        this.healthyBehaviorIndicator = healthyBehaviorIndicator;
+    }
+
+    public Integer getConsecutiveHealthyReports() {
+        return consecutiveHealthyReports;
+    }
+
+    public void setConsecutiveHealthyReports(Integer consecutiveHealthyReports) {
+        this.consecutiveHealthyReports = consecutiveHealthyReports;
+    }
 
     /**
      * Converts this DeviceMessage into a Map<String, Object> with all its fields.
@@ -86,9 +108,23 @@ public class DeviceMessage {
         map.put("malwareSignatureDetected", malwareSignatureDetected);
         map.put("sessionDuration", sessionDuration);
         map.put("timestamp", timestamp);
+        map.put("suspiciousActivityScore", suspiciousActivityScore);
+        map.put("consecutiveAnomalies", consecutiveAnomalies);
+        map.put("deviceProfile", deviceProfile);
+        map.put("coordinates", coordinates);
+
+        // Add healthy behavior fields if present
+        if (healthyBehaviorIndicator != null) {
+            map.put("healthyBehaviorIndicator", healthyBehaviorIndicator);
+        }
+        if (consecutiveHealthyReports != null) {
+            map.put("consecutiveHealthyReports", consecutiveHealthyReports);
+        }
+
         return map;
     }
 
+    // Keep all your existing getters and setters...
     public Long getId() {
         return id;
     }
