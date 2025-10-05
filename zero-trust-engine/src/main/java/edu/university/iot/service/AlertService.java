@@ -42,7 +42,7 @@ public class AlertService {
     }
 
     /**
-     * Generate comprehensive alerts for all devices
+     * Generate comprehensive alerts for all devices (including positive alerts)
      */
     public List<AlertDto> generateSystemAlerts() {
         List<AlertDto> alerts = new ArrayList<>();
@@ -56,36 +56,40 @@ public class AlertService {
         return alerts.stream()
                 .sorted((a, b) -> {
                     int severityOrder = getSeverityOrder(a.getSeverity()) - getSeverityOrder(b.getSeverity());
-                    return severityOrder != 0 ? severityOrder : 
-                           b.getTimestamp().compareTo(a.getTimestamp());
+                    return severityOrder != 0 ? severityOrder : b.getTimestamp().compareTo(a.getTimestamp());
                 })
                 .limit(100) // Limit to most recent/severe 100 alerts
                 .collect(Collectors.toList());
     }
 
     /**
-     * Generate alerts for a specific device
+     * Generate alerts for a specific device (including positive healthy behavior
+     * alerts)
      */
     public List<AlertDto> generateDeviceAlerts(String deviceId) {
         List<AlertDto> alerts = new ArrayList<>();
-        
+
         try {
             DeviceRegistry device = deviceRepo.findById(deviceId).orElse(null);
-            if (device == null) return alerts;
+            if (device == null)
+                return alerts;
 
-            // 1. Trust Score Alerts
+            // 1. Trust Score Alerts (including positive improvements)
             generateTrustScoreAlerts(deviceId, alerts);
 
-            // 2. Anomaly-based Alerts
+            // 2. Healthy Behavior Positive Alerts
+            generateHealthyBehaviorAlerts(deviceId, alerts);
+
+            // 3. Anomaly-based Alerts
             generateAnomalyAlerts(deviceId, alerts);
 
-            // 3. Compliance Alerts
+            // 4. Compliance Alerts
             generateComplianceAlerts(deviceId, alerts);
 
-            // 4. Location-based Alerts
+            // 5. Location-based Alerts
             generateLocationAlerts(deviceId, alerts);
 
-            // 5. Device Status Alerts
+            // 6. Device Status Alerts
             generateDeviceStatusAlerts(device, alerts);
 
         } catch (Exception e) {
@@ -95,18 +99,99 @@ public class AlertService {
         return alerts;
     }
 
+    /**
+     * NEW: Generate positive alerts for healthy behavior
+     */
+    private void generateHealthyBehaviorAlerts(String deviceId, List<AlertDto> alerts) {
+        try {
+            Instant cutoff = Instant.now().minusSeconds(30 * 60); // Last 30 minutes
+
+            List<TrustScoreHistory> recentImprovements = trustScoreHistoryRepo
+                    .findByDeviceIdAndTimestampAfterOrderByTimestampDesc(deviceId, cutoff)
+                    .stream()
+                    .filter(h -> h.getScoreChange() > 0)
+                    .collect(Collectors.toList());
+
+            if (!recentImprovements.isEmpty()) {
+                // Calculate total improvement
+                double totalImprovement = recentImprovements.stream()
+                        .mapToDouble(TrustScoreHistory::getScoreChange)
+                        .sum();
+
+                double currentScore = recentImprovements.get(0).getNewScore();
+
+                // Alert for significant improvement
+                if (totalImprovement >= 10) {
+                    alerts.add(createAlert(deviceId, "TRUST_IMPROVEMENT", "POSITIVE",
+                            String.format("Trust score improved by %.1f points (now: %.1f)",
+                                    totalImprovement, currentScore),
+                            "healthy"));
+                }
+
+                // Alert for reaching trusted status
+                if (currentScore >= 70.0 && recentImprovements.stream()
+                        .anyMatch(h -> h.getOldScore() < 70.0 && h.getNewScore() >= 70.0)) {
+                    alerts.add(createAlert(deviceId, "TRUSTED_STATUS", "POSITIVE",
+                            String.format("Device achieved trusted status (%.1f)", currentScore),
+                            "healthy"));
+                }
+
+                // Alert for excellent health
+                if (currentScore >= 90.0) {
+                    alerts.add(createAlert(deviceId, "EXCELLENT_HEALTH", "INFO",
+                            String.format("Device maintaining excellent health (%.1f)", currentScore),
+                            "healthy"));
+                }
+
+                // Alert for consistent healthy behavior
+                if (recentImprovements.size() >= 5) {
+                    long consecutiveHealthy = recentImprovements.stream()
+                            .mapToLong(h -> h.isCompliancePassed() && !h.isAnomalyDetected() &&
+                                    h.isIdentityPassed() && h.isFirmwareValid() ? 1L : 0L)
+                            .sum();
+
+                    if (consecutiveHealthy >= 5) {
+                        alerts.add(createAlert(deviceId, "CONSISTENT_HEALTH", "POSITIVE",
+                                "Device showing consistent healthy behavior",
+                                "healthy"));
+                    }
+                }
+            }
+
+            // Alert for recovery from quarantine
+            DeviceRegistry device = deviceRepo.findById(deviceId).orElse(null);
+            if (device != null && !device.isQuarantined() && device.getTrustScore() >= 70.0) {
+                // Check if was recently quarantined
+                List<TrustScoreHistory> veryRecent = trustScoreHistoryRepo
+                        .findByDeviceIdAndTimestampAfterOrderByTimestampDesc(
+                                deviceId,
+                                Instant.now().minusSeconds(60 * 60) // Last hour
+                        );
+
+                if (veryRecent.stream().anyMatch(h -> h.getOldScore() < 70.0)) {
+                    alerts.add(createAlert(deviceId, "RECOVERY", "POSITIVE",
+                            "Device recovered from untrusted status",
+                            "healthy"));
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error generating healthy behavior alerts: " + e.getMessage());
+        }
+    }
+
     private void generateTrustScoreAlerts(String deviceId, List<AlertDto> alerts) {
         try {
-            // Get current trust score from device registry or calculate it
             DeviceRegistry device = deviceRepo.findById(deviceId).orElse(null);
-            if (device == null) return;
+            if (device == null)
+                return;
 
             Double currentTrustScore = device.getTrustScore();
             if (currentTrustScore == null) {
-                // Fallback: try to get from trust score service if it has a different method
-                currentTrustScore = 50.0; // Default value or call a different method
+                currentTrustScore = 50.0;
             }
 
+            // Negative alerts
             if (currentTrustScore < 30) {
                 alerts.add(createAlert(deviceId, "TRUST_SCORE", "CRITICAL",
                         String.format("Very low trust score (%.1f)", currentTrustScore),
@@ -117,18 +202,17 @@ public class AlertService {
                         "security"));
             }
 
-            // Check for rapid trust score degradation using TrustScoreHistory
+            // Check for rapid trust score degradation
             List<TrustScoreHistory> recentHistory = trustScoreHistoryRepo
                     .findByDeviceIdAndTimestampAfterOrderByTimestampDesc(
-                            deviceId, 
-                            Instant.now().minusSeconds(6 * 3600) // Last 6 hours
-                    );
+                            deviceId,
+                            Instant.now().minusSeconds(6 * 3600));
 
             if (recentHistory.size() >= 2) {
                 double latestScore = recentHistory.get(0).getNewScore();
                 double oldestScore = recentHistory.get(recentHistory.size() - 1).getNewScore();
                 double scoreDrop = oldestScore - latestScore;
-                
+
                 if (scoreDrop > 20) {
                     alerts.add(createAlert(deviceId, "TRUST_DEGRADATION", "HIGH",
                             String.format("Rapid trust score drop (%.1f points)", scoreDrop),
@@ -155,7 +239,6 @@ public class AlertService {
                         "security"));
             }
 
-            // Alert for frequent anomalies
             if (recentAnomalies.size() >= 3) {
                 alerts.add(createAlert(deviceId, "FREQUENT_ANOMALIES", "HIGH",
                         String.format("%d anomalies detected in 24h", recentAnomalies.size()),
@@ -187,15 +270,13 @@ public class AlertService {
     private void generateLocationAlerts(String deviceId, List<AlertDto> alerts) {
         try {
             List<LocationNetworkChange> recentChanges = locationService.getLocationHistory(deviceId, 24);
-            
-            // Alert for excessive location changes
+
             if (recentChanges.size() >= 5) {
                 alerts.add(createAlert(deviceId, "EXCESSIVE_MOVEMENT", "HIGH",
                         String.format("%d location changes in 24h", recentChanges.size()),
                         "behavioral"));
             }
 
-            // Alert for suspicious location patterns
             for (LocationNetworkChange change : recentChanges.stream().limit(3).collect(Collectors.toList())) {
                 if (isHighRiskLocationChange(change)) {
                     alerts.add(createAlert(deviceId, "SUSPICIOUS_LOCATION", "HIGH",
@@ -209,21 +290,18 @@ public class AlertService {
     }
 
     private void generateDeviceStatusAlerts(DeviceRegistry device, List<AlertDto> alerts) {
-        // Quarantine status
         if (device.isQuarantined()) {
             alerts.add(createAlert(device.getDeviceId(), "QUARANTINE", "HIGH",
                     "Device is currently quarantined",
                     "security"));
         }
 
-        // Firmware alerts
         if (!device.isFirmwareValid()) {
             alerts.add(createAlert(device.getDeviceId(), "FIRMWARE", "MEDIUM",
                     "Firmware validation failed or outdated",
                     "compliance"));
         }
 
-        // Certificate alerts
         if (!device.isCertificateValid()) {
             alerts.add(createAlert(device.getDeviceId(), "CERTIFICATE", "HIGH",
                     "Device certificate invalid or expired",
@@ -245,40 +323,47 @@ public class AlertService {
     private boolean isHighRiskLocationChange(LocationNetworkChange change) {
         String oldLoc = change.getOldLocation();
         String newLoc = change.getNewLocation();
-        
-        // Define high-risk patterns
+
         return (oldLoc != null && oldLoc.contains("Admin") && newLoc != null && newLoc.contains("Off-Campus")) ||
-               (oldLoc != null && oldLoc.contains("Lab") && newLoc != null && newLoc.contains("Off-Campus")) ||
-               (newLoc != null && newLoc.contains("Admin-Building"));
+                (oldLoc != null && oldLoc.contains("Lab") && newLoc != null && newLoc.contains("Off-Campus")) ||
+                (newLoc != null && newLoc.contains("Admin-Building"));
     }
 
     private int getSeverityOrder(String severity) {
         switch (severity.toUpperCase()) {
-            case "CRITICAL": return 0;
-            case "HIGH": return 1;
-            case "MEDIUM": return 2;
-            case "LOW": return 3;
-            default: return 4;
+            case "CRITICAL":
+                return 0;
+            case "HIGH":
+                return 1;
+            case "MEDIUM":
+                return 2;
+            case "LOW":
+                return 3;
+            case "POSITIVE":
+                return 4; // Positive alerts at the end
+            case "INFO":
+                return 5;
+            default:
+                return 6;
         }
     }
 
-    /**
-     * Get alerts summary for dashboard
-     */
     public Map<String, Object> getAlertsSummary() {
         List<AlertDto> allAlerts = generateSystemAlerts();
-        
+
         Map<String, Object> summary = new HashMap<>();
         summary.put("totalAlerts", allAlerts.size());
-        summary.put("criticalAlerts", allAlerts.stream().mapToInt(a -> "CRITICAL".equals(a.getSeverity()) ? 1 : 0).sum());
+        summary.put("criticalAlerts",
+                allAlerts.stream().mapToInt(a -> "CRITICAL".equals(a.getSeverity()) ? 1 : 0).sum());
         summary.put("highAlerts", allAlerts.stream().mapToInt(a -> "HIGH".equals(a.getSeverity()) ? 1 : 0).sum());
         summary.put("mediumAlerts", allAlerts.stream().mapToInt(a -> "MEDIUM".equals(a.getSeverity()) ? 1 : 0).sum());
-        
-        // Group by category
+        summary.put("positiveAlerts",
+                allAlerts.stream().mapToInt(a -> "POSITIVE".equals(a.getSeverity()) ? 1 : 0).sum());
+
         Map<String, Long> byCategory = allAlerts.stream()
                 .collect(Collectors.groupingBy(AlertDto::getCategory, Collectors.counting()));
         summary.put("alertsByCategory", byCategory);
-        
+
         return summary;
     }
 }
