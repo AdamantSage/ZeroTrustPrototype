@@ -11,6 +11,8 @@ import {
   QuarantineTable,
   FirmwareTable
 } from './AuditComponents/index';
+import LocationNetworkAnalytics  from '../components/charts/LocationNetworkAnalytics';
+
 
 export default function AuditPage() {
   const h = React.createElement;
@@ -180,6 +182,7 @@ export default function AuditPage() {
           onExport: handleExport
         }),
 
+        h(LocationNetworkAnalytics, { locationChanges }),
         // Tab Navigation
         h('div', { className: 'border-b border-gray-200 mb-6' },
           h(TabsNav, {
