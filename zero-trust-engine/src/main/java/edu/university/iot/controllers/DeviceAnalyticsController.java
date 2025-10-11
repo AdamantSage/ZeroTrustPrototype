@@ -36,7 +36,7 @@ public class DeviceAnalyticsController {
             TrustScoreService trustScoreService,
             TelemetryProcessorService telemetryProcessorService,
             LocationService locationService) {
-        
+
         this.riskAssessmentService = riskAssessmentService;
         this.trustHistoryService = trustHistoryService;
         this.trustAnalysisService = trustAnalysisService;
@@ -73,19 +73,19 @@ public class DeviceAnalyticsController {
             @RequestParam(defaultValue = "24") int hours) {
         try {
             logger.info("Getting trust analysis for device: {} over {} hours", deviceId, hours);
-            
+
             // Get detailed trust factor analysis
             TrustAnalysisDto analysis = trustAnalysisService.getTrustAnalysis(deviceId);
-            
+
             // Add trust change analysis
             TrustChangeAnalysisDto changeAnalysis = trustHistoryService.analyzeTrustChanges(deviceId, hours);
-            
+
             // Enhance the response with change data
             Map<String, Object> enhancedResponse = new HashMap<>();
             enhancedResponse.put("trustAnalysis", analysis);
             enhancedResponse.put("changeAnalysis", changeAnalysis);
             enhancedResponse.put("analysisPeriod", hours + " hours");
-            
+
             return ResponseEntity.ok(analysis);
         } catch (Exception e) {
             logger.error("Error getting trust analysis for device [{}]: {}", deviceId, e.getMessage(), e);
@@ -111,7 +111,8 @@ public class DeviceAnalyticsController {
     }
 
     /**
-     * Get what specifically changed recently for a device (for "What Changed?" feature)
+     * Get what specifically changed recently for a device (for "What Changed?"
+     * feature)
      */
     @GetMapping("/device/{deviceId}/recent-changes")
     public ResponseEntity<Map<String, Object>> getRecentChanges(
@@ -119,28 +120,28 @@ public class DeviceAnalyticsController {
             @RequestParam(defaultValue = "6") int hours) {
         try {
             logger.info("Getting recent changes for device: {} in last {} hours", deviceId, hours);
-            
+
             Map<String, Object> changes = new HashMap<>();
-            
+
             // Trust score changes
             TrustChangeAnalysisDto trustChanges = trustHistoryService.analyzeTrustChanges(deviceId, hours);
             changes.put("trustChanges", trustChanges);
-            
+
             // Location changes
             var locationChanges = locationService.getLocationHistory(deviceId, hours);
             changes.put("locationChanges", locationChanges);
-            
+
             // Location statistics
             var locationStats = locationService.getLocationStatistics(deviceId);
             changes.put("locationStatistics", locationStats);
-            
+
             // Current trust score breakdown
             var trustBreakdown = trustScoreService.getTrustScoreBreakdown(deviceId);
             changes.put("trustBreakdown", trustBreakdown);
-            
+
             changes.put("analysisPeriod", hours + " hours");
             changes.put("timestamp", System.currentTimeMillis());
-            
+
             return ResponseEntity.ok(changes);
         } catch (Exception e) {
             logger.error("Error getting recent changes for device [{}]: {}", deviceId, e.getMessage(), e);
@@ -157,26 +158,26 @@ public class DeviceAnalyticsController {
             @RequestParam(defaultValue = "24") int hours) {
         try {
             logger.info("Getting behavior analysis for device: {} over {} hours", deviceId, hours);
-            
+
             Map<String, Object> analysis = new HashMap<>();
-            
+
             // Get trust analysis which includes behavioral factors
             TrustAnalysisDto trustAnalysis = trustAnalysisService.getTrustAnalysis(deviceId);
             analysis.put("behavioralFactors", trustAnalysis.getTrustFactors());
-            
+
             // Get location patterns
             var locationStats = locationService.getLocationStatistics(deviceId);
             analysis.put("locationPatterns", locationStats);
-            
+
             // Get trust change patterns
             TrustChangeAnalysisDto changeAnalysis = trustHistoryService.analyzeTrustChanges(deviceId, hours);
             analysis.put("trustPatterns", changeAnalysis.getPatterns());
             analysis.put("criticalEvents", changeAnalysis.getCriticalEvents());
-            
+
             analysis.put("analysisPeriod", hours + " hours");
             analysis.put("riskLevel", changeAnalysis.getRiskLevel());
             analysis.put("summary", changeAnalysis.getSummary());
-            
+
             return ResponseEntity.ok(analysis);
         } catch (Exception e) {
             logger.error("Error getting behavior analysis for device [{}]: {}", deviceId, e.getMessage(), e);
@@ -194,15 +195,15 @@ public class DeviceAnalyticsController {
         try {
             logger.info("Getting system risk overview");
             Map<String, Object> overview = riskAssessmentService.getSystemRiskOverview();
-            
+
             // Add processing statistics
             Map<String, Object> processingStats = telemetryProcessorService.getProcessingStatistics();
             overview.put("processingStats", processingStats);
-            
+
             // Add trust score statistics
             Map<String, Object> trustStats = trustScoreService.getSystemTrustStatistics();
             overview.put("trustStats", trustStats);
-            
+
             return ResponseEntity.ok(overview);
         } catch (Exception e) {
             logger.error("Error getting system risk overview: {}", e.getMessage(), e);
@@ -233,11 +234,11 @@ public class DeviceAnalyticsController {
         try {
             logger.info("Getting enhanced location map data");
             Map<String, Object> mapData = locationService.getLocationMapData();
-            
+
             // Enhance with risk information for each device
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> deviceLocations = (List<Map<String, Object>>) mapData.get("deviceLocations");
-            
+
             if (deviceLocations != null) {
                 for (Map<String, Object> deviceLocation : deviceLocations) {
                     String deviceId = (String) deviceLocation.get("deviceId");
@@ -248,18 +249,18 @@ public class DeviceAnalyticsController {
                             deviceLocation.put("riskLevel", risk.getRiskLevel());
                             deviceLocation.put("activeThreats", risk.getActiveThreats().size());
                             deviceLocation.put("recentAnomalies", risk.getRecentAnomalies());
-                            
+
                             // Add trust score
                             double trustScore = trustScoreService.getTrustScore(deviceId);
                             deviceLocation.put("trustScore", Math.round(trustScore * 100.0) / 100.0);
-                            
+
                         } catch (Exception e) {
                             logger.warn("Could not enhance location data for device {}: {}", deviceId, e.getMessage());
                         }
                     }
                 }
             }
-            
+
             return ResponseEntity.ok(mapData);
         } catch (Exception e) {
             logger.error("Error getting enhanced location map data: {}", e.getMessage(), e);
@@ -278,23 +279,23 @@ public class DeviceAnalyticsController {
             @RequestParam(defaultValue = "50.0") double baselineScore) {
         try {
             logger.info("Manually resetting trust score for device: {} to {}", deviceId, baselineScore);
-            
+
             trustScoreService.resetTrustScore(deviceId, baselineScore);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("deviceId", deviceId);
             response.put("newTrustScore", baselineScore);
             response.put("resetTimestamp", System.currentTimeMillis());
             response.put("status", "success");
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error resetting trust score for device [{}]: {}", deviceId, e.getMessage(), e);
-            
+
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to reset trust score: " + e.getMessage());
             errorResponse.put("deviceId", deviceId);
-            
+
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
@@ -308,17 +309,17 @@ public class DeviceAnalyticsController {
             @RequestBody Map<String, Boolean> factorChanges) {
         try {
             logger.info("Simulating trust score change for device: {}", deviceId);
-            
+
             boolean identity = factorChanges.getOrDefault("identityPass", true);
             boolean context = factorChanges.getOrDefault("contextPass", true);
             boolean firmware = factorChanges.getOrDefault("firmwareValid", true);
             boolean anomaly = factorChanges.getOrDefault("anomalyDetected", false);
             boolean compliance = factorChanges.getOrDefault("compliancePassed", true);
-            
+
             double currentScore = trustScoreService.getTrustScore(deviceId);
             double simulatedScore = trustScoreService.simulateTrustScoreChange(
-                deviceId, identity, context, firmware, anomaly, compliance);
-            
+                    deviceId, identity, context, firmware, anomaly, compliance);
+
             Map<String, Object> simulation = new HashMap<>();
             simulation.put("deviceId", deviceId);
             simulation.put("currentTrustScore", currentScore);
@@ -326,7 +327,7 @@ public class DeviceAnalyticsController {
             simulation.put("expectedChange", simulatedScore - currentScore);
             simulation.put("factorsUsed", factorChanges);
             simulation.put("wouldBeTrusted", simulatedScore >= 70.0);
-            
+
             return ResponseEntity.ok(simulation);
         } catch (Exception e) {
             logger.error("Error simulating trust change for device [{}]: {}", deviceId, e.getMessage(), e);

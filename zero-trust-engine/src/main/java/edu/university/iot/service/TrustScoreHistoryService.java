@@ -19,7 +19,8 @@ import java.util.stream.Collectors;
 
 /**
  * Service for tracking and analyzing trust score changes over time.
- * Provides detailed insights into what factors are affecting device trust scores.
+ * Provides detailed insights into what factors are affecting device trust
+ * scores.
  */
 @Service
 public class TrustScoreHistoryService {
@@ -30,7 +31,7 @@ public class TrustScoreHistoryService {
     private final DeviceRegistryRepository registryRepo;
 
     public TrustScoreHistoryService(TrustScoreHistoryRepository historyRepo,
-                                  DeviceRegistryRepository registryRepo) {
+            DeviceRegistryRepository registryRepo) {
         this.historyRepo = historyRepo;
         this.registryRepo = registryRepo;
     }
@@ -39,11 +40,11 @@ public class TrustScoreHistoryService {
      * Records a trust score change with detailed reasoning
      */
     @Transactional
-    public void recordTrustScoreChange(String deviceId, 
-                                     double oldScore, 
-                                     double newScore,
-                                     Map<String, Boolean> factorResults,
-                                     Map<String, Object> telemetryContext) {
+    public void recordTrustScoreChange(String deviceId,
+            double oldScore,
+            double newScore,
+            Map<String, Boolean> factorResults,
+            Map<String, Object> telemetryContext) {
         try {
             // Only record if there's a meaningful change (> 0.5 points)
             if (Math.abs(newScore - oldScore) < 0.5) {
@@ -65,18 +66,35 @@ public class TrustScoreHistoryService {
             history.setCompliancePassed(factorResults.getOrDefault("compliance", false));
 
             // Build change reason
-            String changeReason = buildChangeReason(factorResults, newScore > oldScore);
+            // Build change reason - check for healthy behavior context
+            String changeReason;
+            String eventCategory = telemetryContext != null ? (String) telemetryContext.get("eventCategory") : null;
+
+            if ("HEALTHY_BEHAVIOR".equals(eventCategory)) {
+                Double bonus = telemetryContext != null ? (Double) telemetryContext.get("healthyBehaviorBonus") : null;
+                Integer streak = telemetryContext != null ? (Integer) telemetryContext.get("consecutiveHealthyReports")
+                        : null;
+
+                changeReason = String.format("Healthy behavior bonus applied (+%.1f)",
+                        bonus != null ? bonus : (newScore - oldScore));
+                if (streak != null && streak >= 5) {
+                    changeReason += String.format(" | Streak: %d reports", streak);
+                }
+            } else {
+                changeReason = buildChangeReason(factorResults, newScore > oldScore);
+            }
+
             history.setChangeReason(changeReason);
 
             // Extract telemetry context
             if (telemetryContext != null) {
                 history.setLocationAtChange((String) telemetryContext.get("location"));
                 history.setIpAddressAtChange((String) telemetryContext.get("ipAddress"));
-                
+
                 Double cpu = (Double) telemetryContext.get("cpuUsage");
                 Double memory = (Double) telemetryContext.get("memoryUsage");
                 Double network = (Double) telemetryContext.get("networkTrafficVolume");
-                
+
                 history.setCpuUsageAtChange(cpu);
                 history.setMemoryUsageAtChange(memory);
                 history.setNetworkTrafficAtChange(network);
@@ -87,12 +105,12 @@ public class TrustScoreHistoryService {
 
             historyRepo.save(history);
 
-            logger.info("Trust score change recorded for device [{}]: {} -> {} ({})", 
-                       deviceId, oldScore, newScore, changeReason);
+            logger.info("Trust score change recorded for device [{}]: {} -> {} ({})",
+                    deviceId, oldScore, newScore, changeReason);
 
         } catch (Exception e) {
-            logger.error("Failed to record trust score change for device [{}]: {}", 
-                        deviceId, e.getMessage(), e);
+            logger.error("Failed to record trust score change for device [{}]: {}",
+                    deviceId, e.getMessage(), e);
         }
     }
 
@@ -109,7 +127,7 @@ public class TrustScoreHistoryService {
             Instant cutoffInstant = cutoff.atZone(ZoneId.systemDefault()).toInstant();
 
             List<TrustScoreHistory> recentChanges = historyRepo
-                .findByDeviceIdAndTimestampAfterOrderByTimestampDesc(deviceId, cutoffInstant);
+                    .findByDeviceIdAndTimestampAfterOrderByTimestampDesc(deviceId, cutoffInstant);
 
             if (recentChanges.isEmpty()) {
                 analysis.setTotalChanges(0);
@@ -119,15 +137,15 @@ public class TrustScoreHistoryService {
 
             // Basic statistics
             analysis.setTotalChanges(recentChanges.size());
-            
+
             double totalChange = recentChanges.stream()
-                .mapToDouble(TrustScoreHistory::getScoreChange)
-                .sum();
+                    .mapToDouble(TrustScoreHistory::getScoreChange)
+                    .sum();
             analysis.setNetScoreChange(totalChange);
 
             long improvingChanges = recentChanges.stream()
-                .mapToLong(h -> h.getScoreChange() > 0 ? 1L : 0L)
-                .sum();
+                    .mapToLong(h -> h.getScoreChange() > 0 ? 1L : 0L)
+                    .sum();
             analysis.setImprovingChanges((int) improvingChanges);
             analysis.setDegradingChanges(recentChanges.size() - (int) improvingChanges);
 
@@ -150,8 +168,8 @@ public class TrustScoreHistoryService {
             analysis.setSummary(generateSummary(analysis));
 
         } catch (Exception e) {
-            logger.error("Failed to analyze trust changes for device [{}]: {}", 
-                        deviceId, e.getMessage(), e);
+            logger.error("Failed to analyze trust changes for device [{}]: {}",
+                    deviceId, e.getMessage(), e);
             analysis.setSummary("Error analyzing trust score changes");
         }
 
@@ -169,12 +187,11 @@ public class TrustScoreHistoryService {
             Instant cutoffInstant = cutoff.atZone(ZoneId.systemDefault()).toInstant();
 
             List<TrustScoreHistory> history = historyRepo
-                .findByDeviceIdAndTimestampAfterOrderByTimestampAsc(deviceId, cutoffInstant);
+                    .findByDeviceIdAndTimestampAfterOrderByTimestampAsc(deviceId, cutoffInstant);
 
             // Get current score from registry
             DeviceRegistry device = registryRepo.findById(deviceId).orElse(null);
-            double currentScore = device != null && device.getTrustScore() != null ? 
-                                device.getTrustScore() : 50.0;
+            double currentScore = device != null && device.getTrustScore() != null ? device.getTrustScore() : 50.0;
 
             if (history.isEmpty()) {
                 // No history - create single point with current score
@@ -196,7 +213,7 @@ public class TrustScoreHistoryService {
                 point.setEventType(determineEventType(record));
                 point.setDescription(record.getChangeReason());
                 point.setSeverity(record.getSeverity());
-                
+
                 // Add context
                 Map<String, Object> context = new HashMap<>();
                 if (record.getLocationAtChange() != null) {
@@ -206,7 +223,7 @@ public class TrustScoreHistoryService {
                     context.put("cpuUsage", record.getCpuUsageAtChange());
                 }
                 point.setContext(context);
-                
+
                 timeline.add(point);
             }
 
@@ -224,8 +241,8 @@ public class TrustScoreHistoryService {
             }
 
         } catch (Exception e) {
-            logger.error("Failed to get trust score timeline for device [{}]: {}", 
-                        deviceId, e.getMessage(), e);
+            logger.error("Failed to get trust score timeline for device [{}]: {}",
+                    deviceId, e.getMessage(), e);
         }
 
         return timeline;
@@ -250,30 +267,43 @@ public class TrustScoreHistoryService {
 
     private String buildChangeReason(Map<String, Boolean> factors, boolean improved) {
         List<String> reasons = new ArrayList<>();
-        
+
         if (improved) {
-            if (factors.getOrDefault("identity", false)) reasons.add("Identity verified");
-            if (factors.getOrDefault("context", false)) reasons.add("Context stable");
-            if (factors.getOrDefault("firmware", false)) reasons.add("Firmware compliant");
-            if (!factors.getOrDefault("anomaly", true)) reasons.add("No anomalies detected");
-            if (factors.getOrDefault("compliance", false)) reasons.add("Policy compliant");
+            if (factors.getOrDefault("identity", false))
+                reasons.add("Identity verified");
+            if (factors.getOrDefault("context", false))
+                reasons.add("Context stable");
+            if (factors.getOrDefault("firmware", false))
+                reasons.add("Firmware compliant");
+            if (!factors.getOrDefault("anomaly", true))
+                reasons.add("No anomalies detected");
+            if (factors.getOrDefault("compliance", false))
+                reasons.add("Policy compliant");
         } else {
-            if (!factors.getOrDefault("identity", true)) reasons.add("Identity verification failed");
-            if (!factors.getOrDefault("context", true)) reasons.add("Context change detected");
-            if (!factors.getOrDefault("firmware", true)) reasons.add("Firmware non-compliant");
-            if (factors.getOrDefault("anomaly", false)) reasons.add("Anomalies detected");
-            if (!factors.getOrDefault("compliance", true)) reasons.add("Policy violations");
+            if (!factors.getOrDefault("identity", true))
+                reasons.add("Identity verification failed");
+            if (!factors.getOrDefault("context", true))
+                reasons.add("Context change detected");
+            if (!factors.getOrDefault("firmware", true))
+                reasons.add("Firmware non-compliant");
+            if (factors.getOrDefault("anomaly", false))
+                reasons.add("Anomalies detected");
+            if (!factors.getOrDefault("compliance", true))
+                reasons.add("Policy violations");
         }
-        
+
         return reasons.isEmpty() ? "General trust adjustment" : String.join(", ", reasons);
     }
 
     private String determineSeverity(double newScore, double oldScore) {
         double change = Math.abs(newScore - oldScore);
-        
-        if (change >= 20) return "CRITICAL";
-        if (change >= 10) return "HIGH";
-        if (change >= 5) return "MEDIUM";
+
+        if (change >= 20)
+            return "CRITICAL";
+        if (change >= 10)
+            return "HIGH";
+        if (change >= 5)
+            return "MEDIUM";
         return "LOW";
     }
 
@@ -286,43 +316,51 @@ public class TrustScoreHistoryService {
         impacts.put("complianceViolations", 0);
 
         for (TrustScoreHistory change : changes) {
-            if (!change.isIdentityPassed()) impacts.merge("identityFailures", 1, Integer::sum);
-            if (!change.isContextPassed()) impacts.merge("contextChanges", 1, Integer::sum);
-            if (!change.isFirmwareValid()) impacts.merge("firmwareIssues", 1, Integer::sum);
-            if (change.isAnomalyDetected()) impacts.merge("anomalies", 1, Integer::sum);
-            if (!change.isCompliancePassed()) impacts.merge("complianceViolations", 1, Integer::sum);
+            if (!change.isIdentityPassed())
+                impacts.merge("identityFailures", 1, Integer::sum);
+            if (!change.isContextPassed())
+                impacts.merge("contextChanges", 1, Integer::sum);
+            if (!change.isFirmwareValid())
+                impacts.merge("firmwareIssues", 1, Integer::sum);
+            if (change.isAnomalyDetected())
+                impacts.merge("anomalies", 1, Integer::sum);
+            if (!change.isCompliancePassed())
+                impacts.merge("complianceViolations", 1, Integer::sum);
         }
 
         return impacts;
     }
 
     private String determineTrend(List<TrustScoreHistory> changes) {
-        if (changes.size() < 3) return "INSUFFICIENT_DATA";
+        if (changes.size() < 3)
+            return "INSUFFICIENT_DATA";
 
         // Look at recent 5 changes
         List<TrustScoreHistory> recent = changes.stream()
-            .limit(5)
-            .collect(Collectors.toList());
+                .limit(5)
+                .collect(Collectors.toList());
 
         double avgChange = recent.stream()
-            .mapToDouble(TrustScoreHistory::getScoreChange)
-            .average()
-            .orElse(0.0);
+                .mapToDouble(TrustScoreHistory::getScoreChange)
+                .average()
+                .orElse(0.0);
 
-        if (avgChange > 2) return "IMPROVING";
-        if (avgChange < -2) return "DEGRADING";
+        if (avgChange > 2)
+            return "IMPROVING";
+        if (avgChange < -2)
+            return "DEGRADING";
         return "STABLE";
     }
 
     private List<String> findCriticalEvents(List<TrustScoreHistory> changes) {
         return changes.stream()
-            .filter(h -> "CRITICAL".equals(h.getSeverity()) || "HIGH".equals(h.getSeverity()))
-            .limit(5)
-            .map(h -> String.format("%s: %s (%.1f points)", 
-                   h.getTimestamp().toString().substring(0, 19), 
-                   h.getChangeReason(), 
-                   h.getScoreChange()))
-            .collect(Collectors.toList());
+                .filter(h -> "CRITICAL".equals(h.getSeverity()) || "HIGH".equals(h.getSeverity()))
+                .limit(5)
+                .map(h -> String.format("%s: %s (%.1f points)",
+                        h.getTimestamp().toString().substring(0, 19),
+                        h.getChangeReason(),
+                        h.getScoreChange()))
+                .collect(Collectors.toList());
     }
 
     private List<String> detectPatterns(List<TrustScoreHistory> changes) {
@@ -330,33 +368,29 @@ public class TrustScoreHistoryService {
 
         // Check for recurring location-based issues
         Map<String, Long> locationIssues = changes.stream()
-            .filter(h -> h.getLocationAtChange() != null && h.getScoreChange() < 0)
-            .collect(Collectors.groupingBy(
-                TrustScoreHistory::getLocationAtChange, 
-                Collectors.counting()
-            ));
+                .filter(h -> h.getLocationAtChange() != null && h.getScoreChange() < 0)
+                .collect(Collectors.groupingBy(
+                        TrustScoreHistory::getLocationAtChange,
+                        Collectors.counting()));
 
         locationIssues.entrySet().stream()
-            .filter(entry -> entry.getValue() >= 3)
-            .forEach(entry -> patterns.add(
-                String.format("Recurring issues at %s (%d occurrences)", 
-                             entry.getKey(), entry.getValue())
-            ));
+                .filter(entry -> entry.getValue() >= 3)
+                .forEach(entry -> patterns.add(
+                        String.format("Recurring issues at %s (%d occurrences)",
+                                entry.getKey(), entry.getValue())));
 
         // Check for time-based patterns
         Map<Integer, Long> hourlyIssues = changes.stream()
-            .filter(h -> h.getScoreChange() < 0)
-            .collect(Collectors.groupingBy(
-                h -> h.getTimestamp().atZone(ZoneId.systemDefault()).getHour(),
-                Collectors.counting()
-            ));
+                .filter(h -> h.getScoreChange() < 0)
+                .collect(Collectors.groupingBy(
+                        h -> h.getTimestamp().atZone(ZoneId.systemDefault()).getHour(),
+                        Collectors.counting()));
 
         hourlyIssues.entrySet().stream()
-            .filter(entry -> entry.getValue() >= 3)
-            .forEach(entry -> patterns.add(
-                String.format("Issues frequently occur around %02d:00 (%d times)", 
-                             entry.getKey(), entry.getValue())
-            ));
+                .filter(entry -> entry.getValue() >= 3)
+                .forEach(entry -> patterns.add(
+                        String.format("Issues frequently occur around %02d:00 (%d times)",
+                                entry.getKey(), entry.getValue())));
 
         return patterns;
     }
@@ -364,25 +398,30 @@ public class TrustScoreHistoryService {
     private String assessCurrentRisk(String deviceId, List<TrustScoreHistory> recentChanges) {
         try {
             DeviceRegistry device = registryRepo.findById(deviceId).orElse(null);
-            if (device == null) return "UNKNOWN";
+            if (device == null)
+                return "UNKNOWN";
 
             Double currentScore = device.getTrustScore();
-            if (currentScore == null) return "UNKNOWN";
+            if (currentScore == null)
+                return "UNKNOWN";
 
             // Recent degradation factor
             long recentDegradations = recentChanges.stream()
-                .limit(5)
-                .mapToLong(h -> h.getScoreChange() < 0 ? 1L : 0L)
-                .sum();
+                    .limit(5)
+                    .mapToLong(h -> h.getScoreChange() < 0 ? 1L : 0L)
+                    .sum();
 
             // Critical events factor
             long criticalEvents = recentChanges.stream()
-                .mapToLong(h -> "CRITICAL".equals(h.getSeverity()) ? 1L : 0L)
-                .sum();
+                    .mapToLong(h -> "CRITICAL".equals(h.getSeverity()) ? 1L : 0L)
+                    .sum();
 
-            if (currentScore < 30 || criticalEvents > 0) return "CRITICAL";
-            if (currentScore < 50 || recentDegradations >= 3) return "HIGH";
-            if (currentScore < 70 || recentDegradations >= 2) return "MEDIUM";
+            if (currentScore < 30 || criticalEvents > 0)
+                return "CRITICAL";
+            if (currentScore < 50 || recentDegradations >= 3)
+                return "HIGH";
+            if (currentScore < 70 || recentDegradations >= 2)
+                return "MEDIUM";
             return "LOW";
 
         } catch (Exception e) {
@@ -392,7 +431,7 @@ public class TrustScoreHistoryService {
 
     private String generateSummary(TrustChangeAnalysisDto analysis) {
         StringBuilder summary = new StringBuilder();
-        
+
         if (analysis.getTotalChanges() == 0) {
             return "Device trust score has been stable with no significant changes";
         }
@@ -408,39 +447,56 @@ public class TrustScoreHistoryService {
         // Add primary factors
         Map<String, Integer> factors = analysis.getFactorImpacts();
         int maxImpact = factors.values().stream().mapToInt(Integer::intValue).max().orElse(0);
-        
+
         if (maxImpact > 0) {
             String primaryFactor = factors.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey)
-                .orElse("");
-                
+                    .max(Map.Entry.comparingByValue())
+                    .map(Map.Entry::getKey)
+                    .orElse("");
+
             summary.append("Primary concern: ").append(formatFactorName(primaryFactor)).append(". ");
         }
 
-        summary.append(String.format("Trend: %s. Risk Level: %s", 
-                      analysis.getTrend().toLowerCase(), 
-                      analysis.getRiskLevel().toLowerCase()));
+        summary.append(String.format("Trend: %s. Risk Level: %s",
+                analysis.getTrend().toLowerCase(),
+                analysis.getRiskLevel().toLowerCase()));
 
         return summary.toString();
     }
 
     private String formatFactorName(String factor) {
         switch (factor) {
-            case "identityFailures": return "identity verification issues";
-            case "contextChanges": return "location/network changes";
-            case "firmwareIssues": return "firmware compliance problems";
-            case "anomalies": return "anomalous behavior";
-            case "complianceViolations": return "policy violations";
-            default: return factor;
+            case "identityFailures":
+                return "identity verification issues";
+            case "contextChanges":
+                return "location/network changes";
+            case "firmwareIssues":
+                return "firmware compliance problems";
+            case "anomalies":
+                return "anomalous behavior";
+            case "complianceViolations":
+                return "policy violations";
+            default:
+                return factor;
         }
     }
 
     private String determineEventType(TrustScoreHistory record) {
-        if (record.getScoreChange() > 10) return "MAJOR_IMPROVEMENT";
-        if (record.getScoreChange() > 2) return "IMPROVEMENT";
-        if (record.getScoreChange() < -10) return "MAJOR_DEGRADATION";
-        if (record.getScoreChange() < -2) return "DEGRADATION";
+        // Check change reason for healthy behavior indicator
+        if (record.getChangeReason() != null &&
+                record.getChangeReason().contains("Healthy behavior bonus")) {
+            return "HEALTHY_IMPROVEMENT";
+        }
+
+        // Standard event type determination
+        if (record.getScoreChange() > 10)
+            return "MAJOR_IMPROVEMENT";
+        if (record.getScoreChange() > 2)
+            return "IMPROVEMENT";
+        if (record.getScoreChange() < -10)
+            return "MAJOR_DEGRADATION";
+        if (record.getScoreChange() < -2)
+            return "DEGRADATION";
         return "MINOR_CHANGE";
     }
 }

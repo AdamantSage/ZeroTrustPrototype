@@ -16,7 +16,7 @@ export default function Dashboard() {
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDevice, setSelectedDevice] = useState('');
-  
+
   // Analytics data for selected device
   const [deviceRisk, setDeviceRisk] = useState(null);
   const [timeline, setTimeline] = useState([]);
@@ -68,6 +68,18 @@ export default function Dashboard() {
       console.error('Failed to load device analytics:', err);
     } finally {
       setAnalyticsLoading(false);
+    }
+  };
+
+  // NEW: Separate function to refresh only timeline (for auto-refresh)
+  const refreshTimeline = async () => {
+    if (!selectedDevice) return;
+
+    try {
+      const timelineData = await analyticsService.getTrustScoreTimeline(selectedDevice, 7);
+      setTimeline(timelineData);
+    } catch (err) {
+      console.error('Failed to refresh timeline:', err);
     }
   };
 
@@ -140,7 +152,7 @@ export default function Dashboard() {
                 className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select device for analytics</option>
-                {devices.map(device => 
+                {devices.map(device =>
                   <option key={device.deviceId} value={device.deviceId}>
                     {device.deviceId} ({device.deviceType || 'Unknown'})
                   </option>
@@ -150,9 +162,9 @@ export default function Dashboard() {
               <button
                 onClick={handleRefresh}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                {loading ? '⏳' : '🔄 Refresh'}
+                {loading ? '⏳ Loading...' : '🔄 Refresh'}
               </button>
             </div>
           </div>
@@ -173,24 +185,29 @@ export default function Dashboard() {
                 <h2 className="text-2xl font-bold mb-4">
                   📱 Device Analytics: {selectedDevice}
                 </h2>
+                {analyticsLoading && (
+                  <div className="inline-flex items-center text-sm text-blue-600">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading analytics...
+                  </div>
+                )}
               </div>
 
-              {analyticsLoading ? (
-                <div className="text-center py-12">
-                  <div className="text-lg text-gray-600">📡 Loading analytics data...</div>
-                </div>
-              ) : (
+              {!analyticsLoading && (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {/* Left column */}
                   <div className="space-y-6">
                     {/* Risk Assessment Panel */}
                     {deviceRisk && (
-                      <DeviceRiskPanel 
-                        data={deviceRisk} 
+                      <DeviceRiskPanel
+                        data={deviceRisk}
                         onResetTrustScore={handleResetTrustScore}
                       />
                     )}
-                    
+
                     {/* Recent Changes Panel */}
                     {recentChanges && (
                       <RecentChangesPanel data={recentChanges} />
@@ -199,16 +216,26 @@ export default function Dashboard() {
 
                   {/* Right column */}
                   <div className="space-y-6">
-                    {/* Trust Score Timeline (replacing System Health) */}
-                    {timeline.length > 0 && (
-                      <TimelineChart 
-                        data={timeline} 
-                        deviceId={selectedDevice}
-                      />
-                    )}
+                    {/* Trust Score Timeline with Auto-Refresh */}
+                    <TimelineChart
+                      data={timeline}
+                      deviceId={selectedDevice}
+                      onRefresh={refreshTimeline} 
+                    />
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Empty state when no device selected */}
+          {!selectedDevice && (
+            <div className="mt-12 text-center py-12 bg-white rounded-lg shadow-sm border">
+              <div className="text-6xl mb-4">📊</div>
+              <h3 className="text-xl font-semibold mb-2">No Device Selected</h3>
+              <p className="text-gray-600">
+                Select a device from the dropdown above to view detailed analytics
+              </p>
             </div>
           )}
         </main>

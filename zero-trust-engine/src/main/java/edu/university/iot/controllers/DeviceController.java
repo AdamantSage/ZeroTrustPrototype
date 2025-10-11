@@ -25,54 +25,54 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/devices")
 public class DeviceController {
 
-    private final DeviceRegistryService    registryService;
-    private final QuarantineService        quarantineService;
-    private final TrustScoreService        trustService;
-    private final DeviceMessageRepository  messageRepo;
+    private final DeviceRegistryService registryService;
+    private final QuarantineService quarantineService;
+    private final TrustScoreService trustService;
+    private final DeviceMessageRepository messageRepo;
     private final TrustScoreHistoryService trustScoreHistoryService;
-    private final TrustAnalysisService     trustAnalysisService;
-    private final FirmwareService          firmwareService;
-    private final ComplianceLogRepository  complianceRepo;
-    private final AnomalyLogRepository     anomalyRepo;
-    private final ComplianceService        complianceService;
-    private final AnomalyDetectorService   anomalyService;
+    private final TrustAnalysisService trustAnalysisService;
+    private final FirmwareService firmwareService;
+    private final ComplianceLogRepository complianceRepo;
+    private final AnomalyLogRepository anomalyRepo;
+    private final ComplianceService complianceService;
+    private final AnomalyDetectorService anomalyService;
 
     public DeviceController(DeviceRegistryService registryService,
-                            QuarantineService quarantineService,
-                            TrustScoreService trustService,
-                            DeviceMessageRepository messageRepo,
-                            TrustScoreHistoryService trustScoreHistoryService,
-                            TrustAnalysisService trustAnalysisService,
-                            FirmwareService firmwareService,
-                            ComplianceLogRepository complianceRepo,
-                            AnomalyLogRepository anomalyRepo,
-                            ComplianceService complianceService,
-                            AnomalyDetectorService anomalyService) {
-        this.registryService         = registryService;
-        this.quarantineService       = quarantineService;
-        this.trustService            = trustService;
-        this.messageRepo             = messageRepo;
+            QuarantineService quarantineService,
+            TrustScoreService trustService,
+            DeviceMessageRepository messageRepo,
+            TrustScoreHistoryService trustScoreHistoryService,
+            TrustAnalysisService trustAnalysisService,
+            FirmwareService firmwareService,
+            ComplianceLogRepository complianceRepo,
+            AnomalyLogRepository anomalyRepo,
+            ComplianceService complianceService,
+            AnomalyDetectorService anomalyService) {
+        this.registryService = registryService;
+        this.quarantineService = quarantineService;
+        this.trustService = trustService;
+        this.messageRepo = messageRepo;
         this.trustScoreHistoryService = trustScoreHistoryService;
-        this.trustAnalysisService    = trustAnalysisService;
-        this.firmwareService         = firmwareService;
-        this.complianceRepo          = complianceRepo;
-        this.anomalyRepo             = anomalyRepo;
-        this.complianceService       = complianceService;
-        this.anomalyService          = anomalyService;
+        this.trustAnalysisService = trustAnalysisService;
+        this.firmwareService = firmwareService;
+        this.complianceRepo = complianceRepo;
+        this.anomalyRepo = anomalyRepo;
+        this.complianceService = complianceService;
+        this.anomalyService = anomalyService;
     }
 
     @GetMapping
     public ResponseEntity<List<DeviceSummaryDto>> listDevices() {
         List<DeviceSummaryDto> list = registryService.findAll().stream()
-            .map(this::buildEnhancedDeviceSummary)
-            .collect(Collectors.toList());
+                .map(this::buildEnhancedDeviceSummary)
+                .collect(Collectors.toList());
 
         return ResponseEntity.ok(list);
     }
 
     private DeviceSummaryDto buildEnhancedDeviceSummary(DeviceRegistry device) {
         String deviceId = device.getDeviceId();
-        
+
         // Fetch most recent telemetry
         Optional<DeviceMessage> optMsg = messageRepo.findTopByDeviceIdOrderByTimestampDesc(deviceId);
 
@@ -106,7 +106,7 @@ public class DeviceController {
         // **FIX 2: Add compliance information**
         try {
             Optional<ComplianceLog> latestCompliance = complianceRepo
-                .findTopByDeviceIdOrderByTimestampDesc(deviceId);
+                    .findTopByDeviceIdOrderByTimestampDesc(deviceId);
             dto.setCompliant(latestCompliance.map(ComplianceLog::isCompliant).orElse(false));
         } catch (Exception e) {
             dto.setCompliant(false);
@@ -117,8 +117,8 @@ public class DeviceController {
             Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
             List<AnomalyLog> recentAnomalies = anomalyRepo.findByDeviceIdAndTimestampAfter(deviceId, cutoff);
             long anomalyCount = recentAnomalies.stream()
-                .mapToLong(log -> log.isAnomalyDetected() ? 1L : 0L)
-                .sum();
+                    .mapToLong(log -> log.isAnomalyDetected() ? 1L : 0L)
+                    .sum();
             dto.setRecentAnomalies((int) anomalyCount);
         } catch (Exception e) {
             dto.setRecentAnomalies(0);
@@ -140,11 +140,11 @@ public class DeviceController {
      */
     private Map<String, String> buildTrustFactors(String deviceId) {
         Map<String, String> factors = new HashMap<>();
-        
+
         try {
             // Get recent data (last 24 hours)
             Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
-            
+
             // Identity factor - based on recent identity logs
             // Since you don't seem to have IdentityLogRepository in your provided code,
             // I'll use the device registry trusted status
@@ -154,7 +154,7 @@ public class DeviceController {
             } else {
                 factors.put("identity", "NO_DATA");
             }
-            
+
             // Firmware factor
             try {
                 FirmwareLogDto firmware = firmwareService.getLatestLogDto(deviceId);
@@ -162,11 +162,11 @@ public class DeviceController {
             } catch (Exception e) {
                 factors.put("firmware", "NO_DATA");
             }
-            
+
             // Compliance factor
             try {
                 Optional<ComplianceLog> compliance = complianceRepo
-                    .findTopByDeviceIdOrderByTimestampDesc(deviceId);
+                        .findTopByDeviceIdOrderByTimestampDesc(deviceId);
                 if (compliance.isPresent()) {
                     factors.put("compliance", compliance.get().isCompliant() ? "LOW_RISK" : "HIGH_RISK");
                 } else {
@@ -175,14 +175,14 @@ public class DeviceController {
             } catch (Exception e) {
                 factors.put("compliance", "NO_DATA");
             }
-            
+
             // Behavioral factor (anomalies)
             try {
                 List<AnomalyLog> recentAnomalies = anomalyRepo.findByDeviceIdAndTimestampAfter(deviceId, cutoff);
                 long anomalyCount = recentAnomalies.stream()
-                    .mapToLong(log -> log.isAnomalyDetected() ? 1L : 0L)
-                    .sum();
-                    
+                        .mapToLong(log -> log.isAnomalyDetected() ? 1L : 0L)
+                        .sum();
+
                 if (anomalyCount == 0) {
                     factors.put("behavior", "LOW_RISK");
                 } else if (anomalyCount <= 2) {
@@ -193,17 +193,17 @@ public class DeviceController {
             } catch (Exception e) {
                 factors.put("behavior", "NO_DATA");
             }
-            
+
             // Location factor - based on location changes
             try {
                 // Check if device has moved locations recently
                 List<DeviceMessage> recentMessages = messageRepo
-                    .findByDeviceIdAndTimestampAfterOrderByTimestampDesc(deviceId, cutoff);
-                    
+                        .findByDeviceIdAndTimestampAfterOrderByTimestampDesc(deviceId, cutoff);
+
                 if (recentMessages.size() > 1) {
                     String currentLocation = recentMessages.get(0).getLocation();
                     boolean locationChanged = recentMessages.stream()
-                        .anyMatch(msg -> !currentLocation.equals(msg.getLocation()));
+                            .anyMatch(msg -> !currentLocation.equals(msg.getLocation()));
                     factors.put("location", locationChanged ? "MEDIUM_RISK" : "LOW_RISK");
                 } else {
                     factors.put("location", "LOW_RISK");
@@ -211,7 +211,7 @@ public class DeviceController {
             } catch (Exception e) {
                 factors.put("location", "NO_DATA");
             }
-            
+
         } catch (Exception e) {
             // If all else fails, return empty factors
             factors.put("identity", "NO_DATA");
@@ -220,7 +220,7 @@ public class DeviceController {
             factors.put("behavior", "NO_DATA");
             factors.put("location", "NO_DATA");
         }
-        
+
         return factors;
     }
 
@@ -233,7 +233,7 @@ public class DeviceController {
 
     @PostMapping("/{deviceId}/quarantine")
     public ResponseEntity<Void> quarantineDevice(@PathVariable String deviceId,
-                                                 @RequestParam String reason) {
+            @RequestParam String reason) {
         quarantineService.quarantineDevice(deviceId, reason);
         return ResponseEntity.ok().build();
     }
@@ -249,8 +249,8 @@ public class DeviceController {
     }
 
     @PostMapping("/{deviceId}/reset-trust-score")
-    public ResponseEntity<?> resetTrustScore(@PathVariable String deviceId, 
-                                           @RequestParam(defaultValue = "50.0") double baselineScore) {
+    public ResponseEntity<?> resetTrustScore(@PathVariable String deviceId,
+            @RequestParam(defaultValue = "50.0") double baselineScore) {
         trustService.resetTrustScore(deviceId, baselineScore);
         return ResponseEntity.ok().build();
     }
@@ -260,24 +260,24 @@ public class DeviceController {
 @RestController
 @RequestMapping("/api/analytics")
 class AnalyticsController {
-    
+
     private final TrustAnalysisService trustAnalysisService;
     private final TrustScoreHistoryService trustScoreHistoryService;
-    
+
     public AnalyticsController(TrustAnalysisService trustAnalysisService,
-                              TrustScoreHistoryService trustScoreHistoryService) {
+            TrustScoreHistoryService trustScoreHistoryService) {
         this.trustAnalysisService = trustAnalysisService;
         this.trustScoreHistoryService = trustScoreHistoryService;
     }
-    
+
     @GetMapping("/trust-analysis/{deviceId}")
     public ResponseEntity<?> getTrustAnalysis(@PathVariable String deviceId) {
         return ResponseEntity.ok(trustAnalysisService.getTrustAnalysis(deviceId));
     }
-    
+
     @GetMapping("/trust-timeline/{deviceId}")
-    public ResponseEntity<?> getTrustTimeline(@PathVariable String deviceId, 
-                                            @RequestParam(defaultValue = "7") int days) {
+    public ResponseEntity<?> getTrustTimeline(@PathVariable String deviceId,
+            @RequestParam(defaultValue = "7") int days) {
         return ResponseEntity.ok(trustScoreHistoryService.getTrustScoreTimeline(deviceId, days));
     }
 }

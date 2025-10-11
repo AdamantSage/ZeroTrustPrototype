@@ -99,8 +99,8 @@ public class HealthyTelemetryProcessorService {
                     true, // compliancePassed
                     telemetry);
 
-            // 4) Apply healthy behavior bonus
-            applyHealthyBehaviorBonus(deviceId, telemetry);
+            // 4) Apply healthy behavior bonus WITH EXPLICIT HISTORY RECORDING
+            applyHealthyBehaviorBonusWithHistory(deviceId, telemetry);
 
             // 5) Reload device to get updated trust score
             device = registryRepo.findById(deviceId).get();
@@ -112,6 +112,9 @@ public class HealthyTelemetryProcessorService {
                         String.format("Trust score improved from %.1f to %.1f through healthy behavior",
                                 preTrustScore, postTrustScore),
                         telemetry);
+
+                logger.info("✅ HEALTHY TELEMETRY PROCESSED: Device [{}] trust improved: {:.1f} -> {:.1f} (+{:.1f})",
+                        deviceId, preTrustScore, postTrustScore, (postTrustScore - preTrustScore));
             }
 
             // 6) Remove quarantine if trust is restored
@@ -137,14 +140,16 @@ public class HealthyTelemetryProcessorService {
     }
 
     /**
-     * Apply additional bonus for healthy behavior
+     * Apply additional bonus for healthy behavior WITH EXPLICIT HISTORY RECORDING
+     * This ensures the improvement shows up in the timeline
      */
-    private void applyHealthyBehaviorBonus(String deviceId, Map<String, Object> telemetry) {
+    private void applyHealthyBehaviorBonusWithHistory(String deviceId, Map<String, Object> telemetry) {
         DeviceRegistry device = registryRepo.findById(deviceId).orElse(null);
         if (device == null)
             return;
 
         double currentScore = device.getTrustScore() != null ? device.getTrustScore() : 50.0;
+        double oldScore = currentScore; // Save for history
 
         // Base healthy behavior bonus
         double bonus = HEALTHY_BEHAVIOR_BONUS;
@@ -163,23 +168,36 @@ public class HealthyTelemetryProcessorService {
 
         // Apply bonus (capped at 100)
         double newScore = Math.min(100.0, currentScore + bonus);
-        device.setTrustScore(newScore);
-        device.setTrusted(newScore >= 70.0);
-        registryRepo.save(device);
 
-        // Record in history
-        Map<String, Boolean> factorResults = new HashMap<>();
-        factorResults.put("identity", true);
-        factorResults.put("context", true);
-        factorResults.put("firmware", true);
-        factorResults.put("anomaly", false);
-        factorResults.put("compliance", true);
+        // Only update if there's a meaningful change
+        if (Math.abs(newScore - oldScore) >= 0.5) {
+            device.setTrustScore(newScore);
+            device.setTrusted(newScore >= 70.0);
+            registryRepo.save(device);
 
-        trustHistoryService.recordTrustScoreChange(deviceId, currentScore, newScore,
-                factorResults, telemetry);
+            // CRITICAL: Record in history with clear "healthy behavior" context
+            Map<String, Boolean> factorResults = new HashMap<>();
+            factorResults.put("identity", true);
+            factorResults.put("context", true);
+            factorResults.put("firmware", true);
+            factorResults.put("anomaly", false); // No anomaly = good
+            factorResults.put("compliance", true);
 
-        logger.debug("Applied healthy behavior bonus to device [{}]: {:.1f} -> {:.1f} (+{:.2f})",
-                deviceId, currentScore, newScore, bonus);
+            // Add healthy behavior marker to telemetry context
+            Map<String, Object> historyContext = new HashMap<>(telemetry);
+            historyContext.put("healthyBehaviorBonus", bonus);
+            historyContext.put("eventCategory", "HEALTHY_BEHAVIOR");
+            if (consecutiveHealthy != null) {
+                historyContext.put("consecutiveHealthyReports", consecutiveHealthy);
+            }
+
+            // Record the change - this will show up in timeline
+            trustHistoryService.recordTrustScoreChange(deviceId, oldScore, newScore,
+                    factorResults, historyContext);
+
+            logger.info("✅ Healthy behavior bonus applied to device [{}]: {:.1f} -> {:.1f} (+{:.2f}) | Streak: {}",
+                    deviceId, oldScore, newScore, bonus, consecutiveHealthy != null ? consecutiveHealthy : 0);
+        }
     }
 
     /**
@@ -224,7 +242,7 @@ public class HealthyTelemetryProcessorService {
         Integer consecutiveHealthy = (Integer) telemetry.get("consecutiveHealthyReports");
 
         if (consecutiveHealthy != null && consecutiveHealthy % 50 == 0) {
-            logger.info("Device [{}] milestone: {} consecutive healthy reports",
+            logger.info("🏆 Device [{}] milestone: {} consecutive healthy reports",
                     deviceId, consecutiveHealthy);
         }
     }
